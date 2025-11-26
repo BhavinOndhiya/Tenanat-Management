@@ -1,0 +1,272 @@
+/* Import theme first - must be before Tailwind */
+@import "./styles/theme.css";
+
+/* Tailwind CSS - v3 syntax */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Navbar - Modern Design */
+.navbar {
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--spacing-md) 0;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  backdrop-filter: blur(10px);
+  /* Light mode background */
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Navbar background for dark mode */
+.dark .navbar {
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom-color: var(--color-border);
+}
+
+.navbar-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-xl);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-brand {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transition: transform var(--transition-base);
+}
+
+.navbar-brand:hover {
+  transform: scale(1.05);
+}
+
+.navbar-menu {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.navbar-link {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  transition: color var(--transition-base);
+  position: relative;
+  padding: var(--spacing-sm) 0;
+}
+
+.navbar-link::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--color-primary);
+  transition: width var(--transition-base);
+}
+
+.navbar-link:hover {
+  color: var(--color-text-primary);
+}
+
+.navbar-link:hover::after {
+  width: 100%;
+}
+
+.navbar-user {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--spacing-xl);
+}
+.auth-content {
+  max-width: 100%;
+  width: 100%;
+  padding: 0;
+}
+.auth-page {
+  overflow: hidden;
+}
+@media (max-width: 1024px) {
+  .auth-page {
+    overflow-y: auto;
+  }
+}
+
+/* Auth Pages */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 100px);
+  padding: var(--spacing-xl);
+}
+
+/* Forms - Now using Tailwind classes in components */
+
+/* Buttons - Now using Button component */
+
+/* Messages - Now using theme variables in components */
+
+/* Dashboard - Now using Tailwind classes in components */
+
+/* Status badges - Now using theme variables in components */
+
+/* Toast Notifications - react-toastify Styling */
+/* Override default react-toastify styles to match our theme */
+.Toastify__toast-container {
+  z-index: 9999;
+}
+
+.Toastify__toast {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+  padding: 16px !important;
+  min-width: 300px !important;
+  font-family: var(--font-sans) !important;
+}
+
+.Toastify__toast--success {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-success) !important;
+}
+
+.Toastify__toast--error {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-error) !important;
+}
+
+.Toastify__toast--info {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.Toastify__toast-body {
+  color: var(--color-text-primary) !important;
+  font-size: var(--font-size-base) !important;
+  padding: 0 !important;
+}
+
+/* Close button styling - react-toastify has built-in close button */
+.Toastify__close-button {
+  color: var(--color-text-secondary) !important;
+  opacity: 1 !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  transition: all var(--transition-base) !important;
+}
+
+.Toastify__close-button:hover {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-secondary) !important;
+  opacity: 1 !important;
+  transform: scale(1.1) !important;
+}
+
+/* Progress bar styling */
+.Toastify__progress-bar {
+  background: var(--color-primary) !important;
+}
+
+.Toastify__progress-bar--success {
+  background: var(--color-success) !important;
+}
+
+.Toastify__progress-bar--error {
+  background: var(--color-error) !important;
+}
+
+.Toastify__progress-bar--info {
+  background: var(--color-primary) !important;
+}
+
+/* Dark mode adjustments */
+.dark .Toastify__toast {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-border) !important;
+}
+
+.dark .Toastify__close-button {
+  color: var(--color-text-secondary) !important;
+}
+
+.dark .Toastify__close-button:hover {
+  color: var(--color-text-primary) !important;
+  background: var(--color-bg-secondary) !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .navbar-container {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+  }
+
+  .navbar-menu {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    width: 100%;
+  }
+
+  .main-content {
+    padding: var(--spacing-md);
+  }
+}
+
