@@ -371,8 +371,13 @@ router.post("/forgot-password", async (req, res, next) => {
     await user.save();
 
     // Get frontend URL
-    const frontendUrl =
-      process.env.FRONTEND_URL || "https://tenant-management.vercel.app";
+    const frontendUrl = process.env.FRONTEND_URL;
+    if (!frontendUrl) {
+      console.error("[Password Reset] FRONTEND_URL not configured");
+      return res.status(500).json({
+        error: "Server configuration error. Please contact support.",
+      });
+    }
     const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
 
     // Send password reset email
@@ -380,13 +385,24 @@ router.post("/forgot-password", async (req, res, next) => {
       const { sendPasswordResetEmail } = await import(
         "../services/notificationService.js"
       );
-      await sendPasswordResetEmail({
+      const emailResult = await sendPasswordResetEmail({
         tenantName: user.name,
         tenantEmail: user.email,
         resetUrl,
       });
+
+      if (!emailResult) {
+        console.error(
+          "[Password Reset] Email service returned false/null - SMTP not configured"
+        );
+        // Log but don't fail the request (security: don't reveal if email exists)
+      }
     } catch (emailError) {
       console.error("[Password Reset] Failed to send email:", emailError);
+      console.error("[Password Reset] Error details:", {
+        message: emailError.message,
+        stack: emailError.stack,
+      });
       // Still return success to not reveal if email exists
     }
 

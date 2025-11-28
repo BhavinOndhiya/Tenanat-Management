@@ -24,6 +24,8 @@ provider:
     SMTP_USER: ${env:SMTP_USER, ''}
     SMTP_PASS: ${env:SMTP_PASS, ''}
     SMTP_FROM: ${env:SMTP_FROM, ''}
+    EMAIL_FROM_NAME: ${env:EMAIL_FROM_NAME, 'Streamivus'}
+    EMAIL_FROM_EMAIL: ${env:EMAIL_FROM_EMAIL, ''}
   httpApi:
     cors:
       allowedOrigins:

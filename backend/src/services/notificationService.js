@@ -1063,8 +1063,15 @@ export const sendPaymentReceiptToTenant = async (payload) => {
 
 export const sendPasswordResetEmail = async (payload) => {
   if (!transporter) {
-    console.log("[EMAIL] Transporter not configured. Skipping password reset.");
-    return;
+    console.error(
+      "[EMAIL] ❌ Transporter not configured. Cannot send password reset email."
+    );
+    console.error("[EMAIL] SMTP configuration check:", {
+      SMTP_HOST: SMTP_HOST ? "✅ Set" : "❌ Missing",
+      SMTP_USER: SMTP_USER ? "✅ Set" : "❌ Missing",
+      SMTP_PASS: hasValidPassword ? "✅ Set" : "❌ Missing or invalid",
+    });
+    return false;
   }
 
   try {
@@ -1079,11 +1086,14 @@ export const sendPasswordResetEmail = async (payload) => {
     console.log(
       `[EMAIL] ✅ Password reset email sent to ${payload.tenantEmail}. ID: ${info.messageId}`
     );
+    return true;
   } catch (error) {
     console.error(
       "[EMAIL] ❌ Failed to send password reset email:",
       error.message
     );
+    console.error("[EMAIL] Error stack:", error.stack);
+    return false;
   }
 };
 
