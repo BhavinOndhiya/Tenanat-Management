@@ -235,7 +235,7 @@ router.post(
                 try {
                   const frontendUrl =
                     process.env.FRONTEND_URL ||
-                    "https://tenant-management.vercel.app";
+                    "https://tenanat-management.vercel.app";
 
                   // Generate password update token for tenant (valid for 24 hours)
                   const jwt = (await import("jsonwebtoken")).default;

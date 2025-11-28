@@ -19,7 +19,7 @@
         "RAZORPAY_KEY_SECRET": "3kC7qZCsTUuu2soxk7rYji3E",
         "RAZORPAY_WEBHOOK_SECRET": "replace-with-webhook-secret",
         "RAZORPAY_CURRENCY": "INR",
-        "FRONTEND_URL": "https://tenant-management.vercel.app",
+        "FRONTEND_URL": "https://tenanat-management.vercel.app",
         "BACKEND_URL": "https://awy56hfhbi.execute-api.us-east-1.amazonaws.com/api",
         "SMTP_HOST": "smtp.hostinger.com",
         "SMTP_PORT": "465",
@@ -238,7 +238,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/complaint-management-api/prod/1764327316200-2025-11-28T10:55:16.200Z/complaint-management-api.zip"
+                "S3Key": "serverless/complaint-management-api/prod/1764331218369-2025-11-28T12:00:18.369Z/complaint-management-api.zip"
               },
               "Handler": "src/handler.handler",
               "Runtime": "nodejs18.x",
@@ -254,7 +254,7 @@
                   "RAZORPAY_KEY_SECRET": "3kC7qZCsTUuu2soxk7rYji3E",
                   "RAZORPAY_WEBHOOK_SECRET": "replace-with-webhook-secret",
                   "RAZORPAY_CURRENCY": "INR",
-                  "FRONTEND_URL": "https://tenant-management.vercel.app",
+                  "FRONTEND_URL": "https://tenanat-management.vercel.app",
                   "BACKEND_URL": "https://awy56hfhbi.execute-api.us-east-1.amazonaws.com/api",
                   "SMTP_HOST": "smtp.hostinger.com",
                   "SMTP_PORT": "465",
@@ -278,14 +278,14 @@
               "ApiLogGroup"
             ]
           },
-          "ApiLambdaVersionYy0YYKsfs0ddV337kuTOXunAHWjRMDlrRn7f8yPux5Y": {
+          "ApiLambdaVersionihnDK017B5l54TIr1EsUXD5Vbir1ZHpOoYojsOJbcE": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "ApiLambdaFunction"
               },
-              "CodeSha256": "TVPuwjGH2+aEMiG3cvantnVMOGmoUh9Lq+kYs1XDiYA="
+              "CodeSha256": "PqTUOHUyxNAgSYtkGmjBtnmXdFtBxSpQJWmj7EvKwRs="
             }
           },
           "HttpApi": {
@@ -435,7 +435,7 @@
           "ApiLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "ApiLambdaVersionYy0YYKsfs0ddV337kuTOXunAHWjRMDlrRn7f8yPux5Y"
+              "Ref": "ApiLambdaVersionihnDK017B5l54TIr1EsUXD5Vbir1ZHpOoYojsOJbcE"
             },
             "Export": {
               "Name": "sls-complaint-management-api-prod-ApiLambdaFunctionQualifiedArn"
@@ -599,7 +599,7 @@
         "timeout": 30,
         "runtime": "nodejs18.x",
         "vpc": {},
-        "versionLogicalId": "ApiLambdaVersionYy0YYKsfs0ddV337kuTOXunAHWjRMDlrRn7f8yPux5Y"
+        "versionLogicalId": "ApiLambdaVersionihnDK017B5l54TIr1EsUXD5Vbir1ZHpOoYojsOJbcE"
       }
     },
     "configValidationMode": "warn",
@@ -625,7 +625,7 @@
     "artifact": "C:\\Users\\BhavinOndhiya\\Desktop\\first-project\\backend\\.serverless\\complaint-management-api.zip"
   },
   "package": {
-    "artifactDirectoryName": "serverless/complaint-management-api/prod/1764327316200-2025-11-28T10:55:16.200Z",
+    "artifactDirectoryName": "serverless/complaint-management-api/prod/1764331218369-2025-11-28T12:00:18.369Z",
     "artifact": "complaint-management-api.zip"
   }
 }

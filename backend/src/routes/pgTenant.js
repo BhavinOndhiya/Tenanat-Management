@@ -639,7 +639,7 @@ router.post("/payments/:paymentId/verify", async (req, res, next) => {
                 try {
                   const frontendUrl =
                     process.env.FRONTEND_URL ||
-                    "https://tenant-management.vercel.app";
+                    "https://tenanat-management.vercel.app";
 
                   const monthNames = [
                     "January",
