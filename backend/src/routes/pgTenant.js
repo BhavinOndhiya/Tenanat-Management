@@ -638,7 +638,8 @@ router.post("/payments/:paymentId/verify", async (req, res, next) => {
                 // Send payment receipt emails to both tenant and owner
                 try {
                   const frontendUrl =
-                    process.env.FRONTEND_URL || "http://localhost:5173";
+                    process.env.FRONTEND_URL ||
+                    "https://tenant-management.vercel.app";
 
                   const monthNames = [
                     "January",

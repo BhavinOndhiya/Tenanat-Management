@@ -19,8 +19,8 @@
         "RAZORPAY_KEY_SECRET": "3kC7qZCsTUuu2soxk7rYji3E",
         "RAZORPAY_WEBHOOK_SECRET": "replace-with-webhook-secret",
         "RAZORPAY_CURRENCY": "INR",
-        "FRONTEND_URL": "http://localhost:5173",
-        "BACKEND_URL": "https://api.example.com",
+        "FRONTEND_URL": "https://tenant-management.vercel.app",
+        "BACKEND_URL": "https://awy56hfhbi.execute-api.us-east-1.amazonaws.com/api",
         "SMTP_HOST": "smtp.hostinger.com",
         "SMTP_PORT": "465",
         "SMTP_USER": "team@streamivus.com",
@@ -238,7 +238,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/complaint-management-api/prod/1764321768259-2025-11-28T09:22:48.259Z/complaint-management-api.zip"
+                "S3Key": "serverless/complaint-management-api/prod/1764324511721-2025-11-28T10:08:31.721Z/complaint-management-api.zip"
               },
               "Handler": "src/handler.handler",
               "Runtime": "nodejs18.x",
@@ -254,8 +254,8 @@
                   "RAZORPAY_KEY_SECRET": "3kC7qZCsTUuu2soxk7rYji3E",
                   "RAZORPAY_WEBHOOK_SECRET": "replace-with-webhook-secret",
                   "RAZORPAY_CURRENCY": "INR",
-                  "FRONTEND_URL": "http://localhost:5173",
-                  "BACKEND_URL": "https://api.example.com",
+                  "FRONTEND_URL": "https://tenant-management.vercel.app",
+                  "BACKEND_URL": "https://awy56hfhbi.execute-api.us-east-1.amazonaws.com/api",
                   "SMTP_HOST": "smtp.hostinger.com",
                   "SMTP_PORT": "465",
                   "SMTP_USER": "team@streamivus.com",
@@ -278,14 +278,14 @@
               "ApiLogGroup"
             ]
           },
-          "ApiLambdaVersiona9uLsXCWrUH41NAg7tsxEzMrDolfSY2QXq1kds": {
+          "ApiLambdaVersionMk9PJEep1EvLftpuriCOIO8ihE8mDrmPptu7AtEMps": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "ApiLambdaFunction"
               },
-              "CodeSha256": "ZZDlXmIAb5/uDXzn6F5cK49+374tyR8G4EzRHTLIKAE="
+              "CodeSha256": "SQxNf7wiM6FmwFP+l+4+gJQ+bRccUkPWNhjC+A2JL10="
             }
           },
           "HttpApi": {
@@ -435,7 +435,7 @@
           "ApiLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "ApiLambdaVersiona9uLsXCWrUH41NAg7tsxEzMrDolfSY2QXq1kds"
+              "Ref": "ApiLambdaVersionMk9PJEep1EvLftpuriCOIO8ihE8mDrmPptu7AtEMps"
             },
             "Export": {
               "Name": "sls-complaint-management-api-prod-ApiLambdaFunctionQualifiedArn"
@@ -599,7 +599,7 @@
         "timeout": 30,
         "runtime": "nodejs18.x",
         "vpc": {},
-        "versionLogicalId": "ApiLambdaVersiona9uLsXCWrUH41NAg7tsxEzMrDolfSY2QXq1kds"
+        "versionLogicalId": "ApiLambdaVersionMk9PJEep1EvLftpuriCOIO8ihE8mDrmPptu7AtEMps"
       }
     },
     "configValidationMode": "warn",
@@ -625,7 +625,7 @@
     "artifact": "C:\\Users\\BhavinOndhiya\\Desktop\\first-project\\backend\\.serverless\\complaint-management-api.zip"
   },
   "package": {
-    "artifactDirectoryName": "serverless/complaint-management-api/prod/1764321768259-2025-11-28T09:22:48.259Z",
+    "artifactDirectoryName": "serverless/complaint-management-api/prod/1764324511721-2025-11-28T10:08:31.721Z",
     "artifact": "complaint-management-api.zip"
   }
 }

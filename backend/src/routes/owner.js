@@ -1328,7 +1328,7 @@ router.post("/pg/tenants", async (req, res, next) => {
     const propertyAddress = formatAddress(property);
 
     // Get frontend URL for password setup/update links
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const frontendUrl = process.env.FRONTEND_URL;
     const passwordSetupUrl = requiresPasswordSetup
       ? `${frontendUrl}/auth/setup-password?token=${setupToken}`
       : null;

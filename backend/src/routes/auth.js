@@ -371,7 +371,8 @@ router.post("/forgot-password", async (req, res, next) => {
     await user.save();
 
     // Get frontend URL
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const frontendUrl =
+      process.env.FRONTEND_URL || "https://tenant-management.vercel.app";
     const resetUrl = `${frontendUrl}/auth/reset-password?token=${resetToken}`;
 
     // Send password reset email

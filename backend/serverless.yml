@@ -17,7 +17,7 @@ provider:
     RAZORPAY_KEY_SECRET: ${env:RAZORPAY_KEY_SECRET, '3kC7qZCsTUuu2soxk7rYji3E'}
     RAZORPAY_WEBHOOK_SECRET: ${env:RAZORPAY_WEBHOOK_SECRET, 'replace-with-webhook-secret'}
     RAZORPAY_CURRENCY: ${env:RAZORPAY_CURRENCY, 'INR'}
-    FRONTEND_URL: ${env:FRONTEND_URL, 'http://localhost:5173'}
+    FRONTEND_URL: ${env:FRONTEND_URL, 'https://tenant-management.vercel.app'}
     BACKEND_URL: ${env:BACKEND_URL, 'https://api.example.com'}
     SMTP_HOST: ${env:SMTP_HOST, ''}
     SMTP_PORT: ${env:SMTP_PORT, '587'}
