@@ -171,7 +171,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/complaint-management-api/prod/1764324511721-2025-11-28T10:08:31.721Z/complaint-management-api.zip"
+          "S3Key": "serverless/complaint-management-api/prod/1764326105263-2025-11-28T10:35:05.263Z/complaint-management-api.zip"
         },
         "Handler": "src/handler.handler",
         "Runtime": "nodejs18.x",
@@ -194,10 +194,10 @@
             "SMTP_USER": "team@streamivus.com",
             "SMTP_PASS": "Streamivus@4520",
             "SMTP_FROM": "",
-            "PORT": "3000",
-            "SMTP_SECURE": "true",
             "EMAIL_FROM_NAME": "Streamivus",
-            "EMAIL_FROM_EMAIL": "team@streamivus.com"
+            "EMAIL_FROM_EMAIL": "team@streamivus.com",
+            "PORT": "3000",
+            "SMTP_SECURE": "true"
           }
         },
         "Role": {
@@ -211,14 +211,14 @@
         "ApiLogGroup"
       ]
     },
-    "ApiLambdaVersionMk9PJEep1EvLftpuriCOIO8ihE8mDrmPptu7AtEMps": {
+    "ApiLambdaVersionQDv1oPE6x434UwDz6KUtNbrzweIKNC2OO35T30iiw": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "ApiLambdaFunction"
         },
-        "CodeSha256": "SQxNf7wiM6FmwFP+l+4+gJQ+bRccUkPWNhjC+A2JL10="
+        "CodeSha256": "SxtgVsmNABuRgWNGabpiT75Edzl1aQKPcOnlz36k8nk="
       }
     },
     "HttpApi": {
@@ -371,7 +371,7 @@
     "ApiLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "ApiLambdaVersionMk9PJEep1EvLftpuriCOIO8ihE8mDrmPptu7AtEMps"
+        "Ref": "ApiLambdaVersionQDv1oPE6x434UwDz6KUtNbrzweIKNC2OO35T30iiw"
       },
       "Export": {
         "Name": "sls-complaint-management-api-prod-ApiLambdaFunctionQualifiedArn"

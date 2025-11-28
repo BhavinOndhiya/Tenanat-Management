@@ -382,9 +382,27 @@ router.post("/forgot-password", async (req, res, next) => {
 
     // Send password reset email
     try {
-      const { sendPasswordResetEmail } = await import(
+      const { sendPasswordResetEmail, isEmailConfigured } = await import(
         "../services/notificationService.js"
       );
+
+      // Check if email is configured before attempting to send
+      if (!isEmailConfigured()) {
+        console.error(
+          "[Password Reset] ❌ SMTP not configured. Cannot send password reset email."
+        );
+        console.error("[Password Reset] SMTP Configuration Status:", {
+          SMTP_HOST: process.env.SMTP_HOST ? "✅ Set" : "❌ Missing",
+          SMTP_USER: process.env.SMTP_USER ? "✅ Set" : "❌ Missing",
+          SMTP_PASS: process.env.SMTP_PASS ? "✅ Set (hidden)" : "❌ Missing",
+          FRONTEND_URL: frontendUrl ? "✅ Set" : "❌ Missing",
+        });
+        return res.status(500).json({
+          error:
+            "Email service is not configured. Please contact your administrator.",
+        });
+      }
+
       const emailResult = await sendPasswordResetEmail({
         tenantName: user.name,
         tenantEmail: user.email,
@@ -393,17 +411,32 @@ router.post("/forgot-password", async (req, res, next) => {
 
       if (!emailResult) {
         console.error(
-          "[Password Reset] Email service returned false/null - SMTP not configured"
+          "[Password Reset] ❌ Email service returned false - email not sent"
         );
-        // Log but don't fail the request (security: don't reveal if email exists)
+        return res.status(500).json({
+          error:
+            "Failed to send password reset email. Please try again later or contact support.",
+        });
       }
+
+      console.log(
+        `[Password Reset] ✅ Password reset email sent successfully to ${user.email}`
+      );
     } catch (emailError) {
-      console.error("[Password Reset] Failed to send email:", emailError);
+      console.error("[Password Reset] ❌ Failed to send email:", emailError);
       console.error("[Password Reset] Error details:", {
         message: emailError.message,
         stack: emailError.stack,
+        name: emailError.name,
       });
-      // Still return success to not reveal if email exists
+      return res.status(500).json({
+        error:
+          "Failed to send password reset email. Please try again later or contact support.",
+        details:
+          process.env.NODE_ENV === "development"
+            ? emailError.message
+            : undefined,
+      });
     }
 
     console.log(

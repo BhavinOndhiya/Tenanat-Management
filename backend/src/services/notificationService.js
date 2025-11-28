@@ -62,8 +62,17 @@ const transporter =
           user: SMTP_USER,
           pass: SMTP_PASS,
         },
+        // Add connection timeout and retry settings
+        connectionTimeout: 10000, // 10 seconds
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
       })
     : null;
+
+// Export function to check if email is configured
+export const isEmailConfigured = () => {
+  return transporter !== null;
+};
 
 // ============ MODERN EMAIL WRAPPER TEMPLATE ============
 const emailWrapper = (content, year = new Date().getFullYear()) => `
@@ -1067,11 +1076,22 @@ export const sendPasswordResetEmail = async (payload) => {
       "[EMAIL] ❌ Transporter not configured. Cannot send password reset email."
     );
     console.error("[EMAIL] SMTP configuration check:", {
-      SMTP_HOST: SMTP_HOST ? "✅ Set" : "❌ Missing",
-      SMTP_USER: SMTP_USER ? "✅ Set" : "❌ Missing",
-      SMTP_PASS: hasValidPassword ? "✅ Set" : "❌ Missing or invalid",
+      SMTP_HOST: SMTP_HOST ? `✅ Set (${SMTP_HOST})` : "❌ Missing",
+      SMTP_PORT: SMTP_PORT ? `✅ Set (${SMTP_PORT})` : "❌ Missing",
+      SMTP_USER: SMTP_USER ? `✅ Set (${SMTP_USER})` : "❌ Missing",
+      SMTP_PASS: hasValidPassword ? "✅ Set (hidden)" : "❌ Missing or invalid",
+      SMTP_FROM: SMTP_FROM ? `✅ Set (${SMTP_FROM})` : "❌ Missing",
+      EMAIL_FROM_EMAIL: EMAIL_FROM_EMAIL
+        ? `✅ Set (${EMAIL_FROM_EMAIL})`
+        : "❌ Missing",
+      EMAIL_FROM_NAME: EMAIL_FROM_NAME
+        ? `✅ Set (${EMAIL_FROM_NAME})`
+        : "❌ Missing",
+      fromEmail: fromEmail,
     });
-    return false;
+    throw new Error(
+      "SMTP email service is not configured. Please configure SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables."
+    );
   }
 
   try {
@@ -1093,7 +1113,10 @@ export const sendPasswordResetEmail = async (payload) => {
       error.message
     );
     console.error("[EMAIL] Error stack:", error.stack);
-    return false;
+    console.error("[EMAIL] Error code:", error.code);
+    console.error("[EMAIL] Error response:", error.response);
+    // Re-throw the error so the caller can handle it
+    throw error;
   }
 };
 
