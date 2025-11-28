@@ -25,7 +25,13 @@ export default function ResetPassword() {
   }, []);
 
   useEffect(() => {
+    console.log(
+      "[ResetPassword] Component mounted, token:",
+      token ? "Present" : "Missing"
+    );
+
     if (!token) {
+      console.error("[ResetPassword] No token found in URL");
       setError("Invalid reset link. Please check your email.");
       setVerifying(false);
       return;
@@ -34,8 +40,10 @@ export default function ResetPassword() {
     // Verify token by attempting to decode it
     try {
       // We'll verify on submit, but show form if token exists
+      console.log("[ResetPassword] Token found, showing form");
       setVerifying(false);
     } catch (error) {
+      console.error("[ResetPassword] Error processing token:", error);
       setError("Invalid or expired reset link");
       setVerifying(false);
     }
@@ -63,7 +71,9 @@ export default function ResetPassword() {
     setLoading(true);
 
     try {
+      console.log("[ResetPassword] Attempting to reset password...");
       const result = await api.resetPassword(token, password);
+      console.log("[ResetPassword] Reset password result:", result);
 
       if (result.success) {
         showToast.success(
@@ -72,8 +82,16 @@ export default function ResetPassword() {
         setTimeout(() => {
           navigate("/auth/login", { replace: true });
         }, 1500);
+      } else {
+        setError(result.error || "Failed to reset password. Please try again.");
+        setLoading(false);
       }
     } catch (error) {
+      console.error("[ResetPassword] Error resetting password:", error);
+      console.error("[ResetPassword] Error details:", {
+        message: error.message,
+        stack: error.stack,
+      });
       setError(error.message || "Failed to reset password. Please try again.");
       setLoading(false);
     }

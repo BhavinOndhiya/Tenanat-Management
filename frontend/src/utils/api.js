@@ -29,7 +29,12 @@ export const api = {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+      const url = `${API_BASE_URL}${endpoint}`;
+      console.log(`[API] Making request to: ${url}`, {
+        method: config.method || "GET",
+      });
+
+      const response = await fetch(url, config);
 
       // Handle non-JSON responses
       let data;
@@ -41,6 +46,12 @@ export const api = {
       }
 
       if (!response.ok) {
+        console.error(`[API] Request failed: ${response.status}`, {
+          url,
+          status: response.status,
+          data,
+        });
+
         // Handle 401 (Unauthorized) - token expired or invalid
         if (response.status === 401) {
           // Clear invalid token
@@ -57,16 +68,16 @@ export const api = {
         throw new Error(errorMessage);
       }
 
+      console.log(`[API] Request successful: ${url}`, data);
       return data;
     } catch (error) {
-      // Log detailed error in development
-      if (import.meta.env.DEV) {
-        console.error("API Error:", {
-          endpoint,
-          error: error.message,
-          stack: error.stack,
-        });
-      }
+      // Log detailed error (always, not just in dev)
+      console.error("[API] Error:", {
+        endpoint,
+        url: `${API_BASE_URL}${endpoint}`,
+        error: error.message,
+        stack: error.stack,
+      });
       throw error;
     }
   },
