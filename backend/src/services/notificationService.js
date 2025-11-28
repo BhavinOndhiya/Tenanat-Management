@@ -1044,10 +1044,17 @@ export const sendTenantWelcomeEmail = async (payload) => {
 
 export const sendPaymentReceiptToTenant = async (payload) => {
   if (!transporter) {
-    console.log(
-      "[EMAIL] Transporter not configured. Skipping payment receipt."
+    console.error(
+      "[EMAIL] ❌ Transporter not configured. Cannot send payment receipt to tenant."
     );
-    return;
+    console.error("[EMAIL] SMTP configuration check:", {
+      SMTP_HOST: SMTP_HOST ? `✅ Set (${SMTP_HOST})` : "❌ Missing",
+      SMTP_USER: SMTP_USER ? `✅ Set (${SMTP_USER})` : "❌ Missing",
+      SMTP_PASS: hasValidPassword ? "✅ Set (hidden)" : "❌ Missing or invalid",
+    });
+    throw new Error(
+      "SMTP email service is not configured. Cannot send payment receipt email."
+    );
   }
 
   try {
@@ -1062,11 +1069,15 @@ export const sendPaymentReceiptToTenant = async (payload) => {
     console.log(
       `[EMAIL] ✅ Payment receipt sent to tenant ${payload.tenantEmail}. ID: ${info.messageId}`
     );
+    return true;
   } catch (error) {
     console.error(
       "[EMAIL] ❌ Failed to send payment receipt to tenant:",
       error.message
     );
+    console.error("[EMAIL] Error stack:", error.stack);
+    console.error("[EMAIL] Error code:", error.code);
+    throw error;
   }
 };
 
@@ -1122,10 +1133,17 @@ export const sendPasswordResetEmail = async (payload) => {
 
 export const sendPaymentReceiptToOwner = async (payload) => {
   if (!transporter) {
-    console.log(
-      "[EMAIL] Transporter not configured. Skipping owner notification."
+    console.error(
+      "[EMAIL] ❌ Transporter not configured. Cannot send payment receipt to owner."
     );
-    return;
+    console.error("[EMAIL] SMTP configuration check:", {
+      SMTP_HOST: SMTP_HOST ? `✅ Set (${SMTP_HOST})` : "❌ Missing",
+      SMTP_USER: SMTP_USER ? `✅ Set (${SMTP_USER})` : "❌ Missing",
+      SMTP_PASS: hasValidPassword ? "✅ Set (hidden)" : "❌ Missing or invalid",
+    });
+    throw new Error(
+      "SMTP email service is not configured. Cannot send payment receipt email."
+    );
   }
 
   try {
@@ -1142,11 +1160,15 @@ export const sendPaymentReceiptToOwner = async (payload) => {
     console.log(
       `[EMAIL] ✅ Payment notification sent to owner ${payload.ownerEmail}. ID: ${info.messageId}`
     );
+    return true;
   } catch (error) {
     console.error(
-      "[EMAIL] ❌ Failed to send payment notification to owner:",
+      "[EMAIL] ❌ Failed to send payment receipt to owner:",
       error.message
     );
+    console.error("[EMAIL] Error stack:", error.stack);
+    console.error("[EMAIL] Error code:", error.code);
+    throw error;
   }
 };
 

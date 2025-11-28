@@ -108,10 +108,20 @@ export async function generateRentInvoice({
   });
 
   // Create invoices directory if it doesn't exist
-  const invoicesDir = path.join(__dirname, "../../invoices");
+  // In Lambda, use /tmp (only writable directory), otherwise use project directory
+  const isLambda =
+    process.env.LAMBDA_TASK_ROOT || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  const invoicesDir = isLambda
+    ? path.join("/tmp", "invoices")
+    : path.join(__dirname, "../../invoices");
+
   if (!fs.existsSync(invoicesDir)) {
     fs.mkdirSync(invoicesDir, { recursive: true });
   }
+
+  console.log(
+    `[Invoice] Using invoices directory: ${invoicesDir} (Lambda: ${!!isLambda})`
+  );
 
   const fileName = `rent-invoice-${rentPayment._id.toString()}.pdf`;
   const filePath = path.join(invoicesDir, fileName);

@@ -61,9 +61,20 @@ app.use("/api", apiRoutes);
 // Serve invoice PDFs
 app.get("/api/invoices/:filename", (req, res) => {
   const filename = req.params.filename;
-  const filePath = path.join(__dirname, "../invoices", filename);
+
+  // In Lambda, use /tmp (only writable directory), otherwise use project directory
+  const isLambda =
+    process.env.LAMBDA_TASK_ROOT || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  const invoicesDir = isLambda
+    ? path.join("/tmp", "invoices")
+    : path.join(__dirname, "../invoices");
+
+  const filePath = path.join(invoicesDir, filename);
 
   if (!fs.existsSync(filePath)) {
+    console.error(
+      `[Invoice] File not found: ${filePath} (Lambda: ${!!isLambda})`
+    );
     return res.status(404).json({ error: "Invoice not found" });
   }
 
