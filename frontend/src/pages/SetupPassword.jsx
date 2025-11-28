@@ -37,25 +37,27 @@ export default function SetupPassword() {
     // Verify token
     const verifyToken = async () => {
       try {
-        const response = await fetch(
-          `/api/auth/verify-setup-token?token=${token}`
-        );
-        const data = await response.json();
+        console.log("[SetupPassword] Verifying token...");
+        const data = await api.verifySetupToken(token);
 
-        if (!response.ok || !data.valid) {
+        if (!data.valid) {
+          console.error("[SetupPassword] Token invalid:", data.error);
           setError(data.error || "Invalid or expired setup link");
           setVerifying(false);
           return;
         }
 
+        console.log("[SetupPassword] Token verified for:", data.email);
         setUserInfo({
           email: data.email,
           name: data.name,
         });
         setVerifying(false);
       } catch (error) {
-        console.error("Token verification error:", error);
-        setError("Failed to verify setup link. Please try again.");
+        console.error("[SetupPassword] Token verification error:", error);
+        setError(
+          error.message || "Failed to verify setup link. Please try again."
+        );
         setVerifying(false);
       }
     };

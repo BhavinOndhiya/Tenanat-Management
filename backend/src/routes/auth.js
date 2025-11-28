@@ -243,15 +243,31 @@ router.get("/verify-setup-token", async (req, res, next) => {
   try {
     const { token } = req.query;
 
+    console.log("[Verify Setup Token] Request received");
+
     if (!token) {
-      return res.status(400).json({ error: "Token is required" });
+      console.error("[Verify Setup Token] ❌ Token missing");
+      return res.status(400).json({
+        valid: false,
+        error: "Token is required",
+      });
     }
 
     // Verify token
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log("[Verify Setup Token] Token decoded:", {
+        userId: decoded.userId,
+        email: decoded.email,
+        type: decoded.type,
+        jti: decoded.jti,
+      });
     } catch (error) {
+      console.error(
+        "[Verify Setup Token] ❌ Token verification failed:",
+        error.message
+      );
       return res.status(400).json({
         valid: false,
         error: "Invalid or expired token",
@@ -259,6 +275,10 @@ router.get("/verify-setup-token", async (req, res, next) => {
     }
 
     if (decoded.type !== "password_setup") {
+      console.error(
+        "[Verify Setup Token] ❌ Invalid token type:",
+        decoded.type
+      );
       return res.status(400).json({
         valid: false,
         error: "Invalid token type",
@@ -271,15 +291,39 @@ router.get("/verify-setup-token", async (req, res, next) => {
       : await User.findOne({ email: decoded.email });
 
     if (!user) {
+      console.error("[Verify Setup Token] ❌ User not found:", {
+        userId: decoded.userId,
+        email: decoded.email,
+      });
       return res.status(404).json({
         valid: false,
         error: "User not found",
       });
     }
 
+    console.log(
+      "[Verify Setup Token] User found:",
+      user.email,
+      "Role:",
+      user.role
+    );
+
+    // Check if user is a PG_TENANT
+    if (user.role !== "PG_TENANT") {
+      console.error(
+        "[Verify Setup Token] ❌ User is not PG_TENANT:",
+        user.role
+      );
+      return res.status(403).json({
+        valid: false,
+        error: "Password setup is only available for PG tenants",
+      });
+    }
+
     // Check if token has already been used
     const tokenId = decoded.jti || decoded.id || token.substring(0, 20);
     if (user.usedPasswordTokens && user.usedPasswordTokens.includes(tokenId)) {
+      console.error("[Verify Setup Token] ❌ Token already used:", tokenId);
       return res.status(400).json({
         valid: false,
         error:
@@ -287,12 +331,14 @@ router.get("/verify-setup-token", async (req, res, next) => {
       });
     }
 
+    console.log("[Verify Setup Token] ✅ Token is valid for user:", user.email);
     res.json({
       valid: true,
       email: user.email,
       name: user.name,
     });
   } catch (error) {
+    console.error("[Verify Setup Token] ❌ Unexpected error:", error);
     next(error);
   }
 });

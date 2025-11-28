@@ -97,6 +97,15 @@ export const api = {
     });
   },
 
+  async verifySetupToken(token) {
+    return this.request(
+      `/auth/verify-setup-token?token=${encodeURIComponent(token)}`,
+      {
+        method: "GET",
+      }
+    );
+  },
+
   async setupPassword(token, password) {
     return this.request("/auth/setup-password", {
       method: "POST",
