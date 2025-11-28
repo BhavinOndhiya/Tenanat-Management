@@ -1075,6 +1075,7 @@ router.post("/pg/tenants", async (req, res, next) => {
     let isNewUser = false;
     let requiresPasswordSetup = false;
     let setupToken = null;
+    let finalPassword = null;
 
     if (existingUser) {
       // User exists - check if they already have a PG_TENANT profile
@@ -1152,7 +1153,6 @@ router.post("/pg/tenants", async (req, res, next) => {
       // New user - check if password was provided
       isNewUser = true;
 
-      let finalPassword = null;
       let passwordHash = null;
 
       // Check if owner provided a password
