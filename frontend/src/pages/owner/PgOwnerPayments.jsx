@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api } from "../../utils/api";
+import { api, API_BASE_URL } from "../../utils/api";
 import { showToast } from "../../utils/toast";
 import Card from "../../components/ui/Card";
 import Loader from "../../components/ui/Loader";
@@ -101,6 +101,15 @@ export default function PgOwnerPayments() {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
+  const resolveInvoiceUrl = (invoiceUrl) => {
+    if (!invoiceUrl) return "";
+    if (invoiceUrl.startsWith("http")) return invoiceUrl;
+    const normalizedPath = invoiceUrl.startsWith("/")
+      ? invoiceUrl
+      : `/${invoiceUrl}`;
+    return `${API_BASE_URL}${normalizedPath}`;
+  };
+
   const handleDownloadInvoice = async (
     invoiceUrl,
     fileName = "invoice.pdf"
@@ -111,9 +120,7 @@ export default function PgOwnerPayments() {
     }
 
     try {
-      const fullUrl = invoiceUrl.startsWith("http")
-        ? invoiceUrl
-        : `${window.location.origin}${invoiceUrl}`;
+      const fullUrl = resolveInvoiceUrl(invoiceUrl);
 
       // Fetch the PDF file
       const response = await fetch(fullUrl);
@@ -135,9 +142,7 @@ export default function PgOwnerPayments() {
     } catch (error) {
       console.error("Download error:", error);
       // Fallback: open in new tab
-      const fullUrl = invoiceUrl.startsWith("http")
-        ? invoiceUrl
-        : `${window.location.origin}${invoiceUrl}`;
+      const fullUrl = resolveInvoiceUrl(invoiceUrl);
       window.open(fullUrl, "_blank");
       showToast.info(
         "Opening invoice in new tab. You can download it from there."
@@ -152,9 +157,7 @@ export default function PgOwnerPayments() {
     }
 
     // Open invoice in new tab for viewing
-    const fullUrl = invoiceUrl.startsWith("http")
-      ? invoiceUrl
-      : `${window.location.origin}${invoiceUrl}`;
+    const fullUrl = resolveInvoiceUrl(invoiceUrl);
     window.open(fullUrl, "_blank");
   };
 

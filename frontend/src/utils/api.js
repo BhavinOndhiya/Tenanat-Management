@@ -1,4 +1,4 @@
-const API_BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_BACKEND_BASE_URL?.replace(/\/$/, "") || "/api";
 
 const buildQuery = (params = {}) => {
