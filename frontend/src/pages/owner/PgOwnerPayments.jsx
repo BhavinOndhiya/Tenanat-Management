@@ -104,10 +104,21 @@ export default function PgOwnerPayments() {
   const resolveInvoiceUrl = (invoiceUrl) => {
     if (!invoiceUrl) return "";
     if (invoiceUrl.startsWith("http")) return invoiceUrl;
+
     const normalizedPath = invoiceUrl.startsWith("/")
       ? invoiceUrl
       : `/${invoiceUrl}`;
-    return `${API_BASE_URL}${normalizedPath}`;
+
+    let base = API_BASE_URL;
+    if (base.endsWith("/")) {
+      base = base.slice(0, -1);
+    }
+
+    if (base.endsWith("/api") && normalizedPath.startsWith("/api")) {
+      return `${base}${normalizedPath.slice(4) || "/"}`;
+    }
+
+    return `${base}${normalizedPath}`;
   };
 
   const handleDownloadInvoice = async (
