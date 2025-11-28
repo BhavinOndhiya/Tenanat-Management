@@ -206,6 +206,35 @@ function ComplaintDetails() {
           </div>
         </Card>
       </motion.div>
+
+      {complaint.comments && complaint.comments.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          <Card padding="lg">
+            <h3 className="text-xl font-semibold text-[var(--color-text-primary)] mb-4">
+              Comments & Updates
+            </h3>
+            <div className="space-y-4">
+              {complaint.comments.map((comment, idx) => (
+                <div
+                  key={comment._id || idx}
+                  className="p-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)]"
+                >
+                  <p className="text-[var(--color-text-primary)] mb-2">
+                    {comment.message}
+                  </p>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    {formatDate(comment.createdAt)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

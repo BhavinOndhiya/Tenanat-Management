@@ -1,4 +1,5 @@
-const API_BASE_URL = "/api";
+const API_BASE_URL =
+  import.meta.env.VITE_BACKEND_BASE_URL?.replace(/\/$/, "") || "/api";
 
 const buildQuery = (params = {}) => {
   const query = new URLSearchParams();
@@ -82,6 +83,34 @@ export const api = {
     return this.request("/auth/login", {
       method: "POST",
       body: { email, password },
+    });
+  },
+
+  async setupPassword(token, password) {
+    return this.request("/auth/setup-password", {
+      method: "POST",
+      body: { token, password },
+    });
+  },
+
+  async forgotPassword(email) {
+    return this.request("/auth/forgot-password", {
+      method: "POST",
+      body: { email },
+    });
+  },
+
+  async resetPassword(token, password) {
+    return this.request("/auth/reset-password", {
+      method: "POST",
+      body: { token, password },
+    });
+  },
+
+  async updatePassword(token, password) {
+    return this.request("/auth/update-password", {
+      method: "POST",
+      body: { token, password },
     });
   },
 
@@ -379,6 +408,13 @@ export const api = {
     return this.request("/tenants/users");
   },
 
+  async createTenantUser(payload) {
+    return this.request("/tenants/users", {
+      method: "POST",
+      body: payload,
+    });
+  },
+
   async getMyOwnedFlats() {
     return this.request("/tenants/my-flats");
   },
@@ -411,5 +447,140 @@ export const api = {
     return this.request(`/tenants/${tenantId}/send-reminder`, {
       method: "POST",
     });
+  },
+
+  // Owner dashboards & complaints
+  async getOwnerDashboard(params = {}) {
+    return this.request(`/owner/dashboard${buildQuery(params)}`);
+  },
+
+  async getOwnerProperties() {
+    return this.request("/owner/properties");
+  },
+
+  async getOwnerPgProperties() {
+    return this.request("/owner/pg/properties");
+  },
+
+  async createOwnerPgProperty(payload) {
+    return this.request("/owner/pg/properties", {
+      method: "POST",
+      body: payload,
+    });
+  },
+
+  async updateOwnerPgProperty(id, payload) {
+    return this.request(`/owner/pg/properties/${id}`, {
+      method: "PATCH",
+      body: payload,
+    });
+  },
+
+  async deleteOwnerPgProperty(id) {
+    return this.request(`/owner/pg/properties/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  async getOwnerComplaints(params = {}) {
+    return this.request(`/owner/complaints${buildQuery(params)}`);
+  },
+
+  async getOwnerComplaint(id) {
+    return this.request(`/owner/complaints/${id}`);
+  },
+
+  async updateOwnerComplaintStatus(id, status) {
+    return this.request(`/owner/complaints/${id}/status`, {
+      method: "PATCH",
+      body: { status },
+    });
+  },
+
+  async addOwnerComplaintComment(id, message) {
+    return this.request(`/owner/complaints/${id}/comments`, {
+      method: "POST",
+      body: { message },
+    });
+  },
+
+  async getPgTenants() {
+    return this.request("/owner/pg/tenants");
+  },
+
+  async createPgTenant(payload) {
+    return this.request("/owner/pg/tenants", {
+      method: "POST",
+      body: payload,
+    });
+  },
+
+  async updatePgTenant(id, payload) {
+    return this.request(`/owner/pg/tenants/${id}`, {
+      method: "PATCH",
+      body: payload,
+    });
+  },
+  async deletePgTenant(id) {
+    return this.request(`/owner/pg/tenants/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Admin role access
+  async getRoleAccess() {
+    return this.request("/admin/role-access");
+  },
+
+  async updateRoleAccess(role, navItems) {
+    return this.request(`/admin/role-access/${role}`, {
+      method: "PATCH",
+      body: { navItems },
+    });
+  },
+
+  // PG Tenant Rent Payments
+  async getNextRentDue() {
+    return this.request("/pg-tenant/payments/next-due");
+  },
+
+  async createRentPaymentOrder(paymentId) {
+    return this.request(`/pg-tenant/payments/${paymentId}/create-order`, {
+      method: "POST",
+    });
+  },
+
+  async getRentPaymentHistory(params = {}) {
+    return this.request(`/pg-tenant/payments/history${buildQuery(params)}`);
+  },
+
+  async getRentPaymentStatistics() {
+    return this.request("/pg-tenant/payments/statistics");
+  },
+
+  async verifyRentPayment(paymentId) {
+    return this.request(`/pg-tenant/payments/${paymentId}/verify`, {
+      method: "POST",
+    });
+  },
+
+  async generateRentInvoice(paymentId) {
+    return this.request(`/pg-tenant/payments/${paymentId}/generate-invoice`, {
+      method: "POST",
+    });
+  },
+
+  // PG Owner Rent Payments
+  async getOwnerRentPayments(params = {}) {
+    return this.request(`/owner/pg/payments/history${buildQuery(params)}`);
+  },
+
+  async getOwnerRentPaymentsSummary(params = {}) {
+    return this.request(`/owner/pg/payments/summary${buildQuery(params)}`);
+  },
+
+  // PG Tenant Profile
+  async getPgTenantProfile() {
+    return this.request(`/pg-tenant/profile`);
   },
 };

@@ -1,0 +1,74 @@
+service: complaint-management-api
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  memorySize: 512
+  timeout: 30
+  environment:
+    NODE_ENV: ${self:provider.stage}
+    DATABASE_URL: ${env:DATABASE_URL, 'mongodb://localhost:27017/first-project'}
+    JWT_SECRET: ${env:JWT_SECRET, 'replace-with-strong-secret'}
+    RAZORPAY_KEY_ID: ${env:RAZORPAY_KEY_ID, 'rzp_test_RkLNW87l37yj42'}
+    RAZORPAY_KEY_SECRET: ${env:RAZORPAY_KEY_SECRET, '3kC7qZCsTUuu2soxk7rYji3E'}
+    RAZORPAY_WEBHOOK_SECRET: ${env:RAZORPAY_WEBHOOK_SECRET, 'replace-with-webhook-secret'}
+    RAZORPAY_CURRENCY: ${env:RAZORPAY_CURRENCY, 'INR'}
+    FRONTEND_URL: ${env:FRONTEND_URL, 'http://localhost:5173'}
+    BACKEND_URL: ${env:BACKEND_URL, 'https://api.example.com'}
+    SMTP_HOST: ${env:SMTP_HOST, ''}
+    SMTP_PORT: ${env:SMTP_PORT, '587'}
+    SMTP_USER: ${env:SMTP_USER, ''}
+    SMTP_PASS: ${env:SMTP_PASS, ''}
+    SMTP_FROM: ${env:SMTP_FROM, ''}
+  httpApi:
+    cors:
+      allowedOrigins:
+        - "*"
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+        - X-Requested-With
+        - Accept
+        - Origin
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - PATCH
+        - OPTIONS
+      allowCredentials: false
+      maxAge: 86400
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: "*"
+
+functions:
+  api:
+    handler: src/handler.handler
+    events:
+      - httpApi:
+          path: /{proxy+}
+          method: ANY
+      - httpApi:
+          path: /
+          method: ANY
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3000
+    noPrependStageInUrl: true

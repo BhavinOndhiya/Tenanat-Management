@@ -100,7 +100,7 @@ function AdminDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <StatCard
           label="Total Complaints"
           value={(stats.openComplaints || 0) + (stats.resolvedComplaints || 0)}
@@ -108,28 +108,10 @@ function AdminDashboard() {
           onClick={handleNavigate("/admin/complaints/all")}
         />
         <StatCard
-          label="Total Residents"
-          value={stats.totalCitizens}
-          accent="text-[var(--color-primary)]"
-          onClick={handleNavigate("/admin/flats/list")}
-        />
-        <StatCard
           label="Total Flats"
           value={stats.totalFlats}
           accent="text-[var(--color-success)]"
           onClick={handleNavigate("/admin/flats/list")}
-        />
-        <StatCard
-          label="Open Complaints"
-          value={stats.openComplaints}
-          accent="text-[var(--color-warning)]"
-          onClick={handleNavigate("/admin/complaints/open")}
-        />
-        <StatCard
-          label="Resolved Complaints"
-          value={stats.resolvedComplaints}
-          accent="text-[var(--color-success)]"
-          onClick={handleNavigate("/admin/complaints/resolved")}
         />
         <StatCard
           label="Active Announcements"
@@ -144,6 +126,39 @@ function AdminDashboard() {
           onClick={handleNavigate("/admin/events/list")}
         />
       </div>
+
+      {(stats.rentPaymentsPaid > 0 || stats.rentPaymentsPending > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <StatCard
+            label="PG Rent Payments - Paid"
+            value={stats.rentPaymentsPaid || 0}
+            accent="text-[var(--color-success)]"
+          />
+          <StatCard
+            label="PG Rent Payments - Pending"
+            value={stats.rentPaymentsPending || 0}
+            accent="text-[var(--color-warning)]"
+          />
+          <StatCard
+            label="Total Received (₹)"
+            value={new Intl.NumberFormat("en-IN", {
+              style: "currency",
+              currency: "INR",
+              maximumFractionDigits: 0,
+            }).format(stats.rentPaymentsTotalReceived || 0)}
+            accent="text-[var(--color-success)]"
+          />
+          <StatCard
+            label="Total Pending (₹)"
+            value={new Intl.NumberFormat("en-IN", {
+              style: "currency",
+              currency: "INR",
+              maximumFractionDigits: 0,
+            }).format(stats.rentPaymentsTotalPending || 0)}
+            accent="text-[var(--color-error)]"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card padding="lg">

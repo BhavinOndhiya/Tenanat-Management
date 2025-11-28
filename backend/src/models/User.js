@@ -19,12 +19,42 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["CITIZEN", "OFFICER", "ADMIN"],
+      enum: [
+        "CITIZEN",
+        "OFFICER",
+        "ADMIN",
+        "TENANT",
+        "PG_TENANT",
+        "FLAT_OWNER",
+        "PG_OWNER",
+      ],
       default: "CITIZEN",
     },
     isActive: {
       type: Boolean,
       default: true,
+    },
+    ownerProperties: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Flat",
+        },
+      ],
+      default: [],
+    },
+    assignedProperty: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Flat",
+      default: null,
+    },
+    roomNumber: {
+      type: String,
+      trim: true,
+    },
+    bedNumber: {
+      type: String,
+      trim: true,
     },
     // Profile fields
     address: {
@@ -80,6 +110,20 @@ const userSchema = new mongoose.Schema(
         type: String,
         enum: ["MALE", "FEMALE", "OTHER", "PREFER_NOT_TO_SAY"],
       },
+    },
+    // Password reset rate limiting
+    passwordResetAttempts: [
+      {
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    // Track used password tokens (one-time use)
+    usedPasswordTokens: {
+      type: [String],
+      default: [],
     },
   },
   {

@@ -2,6 +2,10 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import SetupPassword from "./pages/SetupPassword";
+import ResetPassword from "./pages/ResetPassword";
+import UpdatePassword from "./pages/UpdatePassword";
+import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import OfficerDashboard from "./pages/OfficerDashboard";
 import Profile from "./pages/Profile";
@@ -20,13 +24,25 @@ import AdminFlatsList from "./pages/admin/AdminFlatsList";
 import AdminBillingOverview from "./pages/admin/AdminBillingOverview";
 import AdminBillingInvoices from "./pages/admin/AdminBillingInvoices";
 import AdminBillingInvoiceDetail from "./pages/admin/AdminBillingInvoiceDetail";
+import AdminRoleAccess from "./pages/admin/AdminRoleAccess";
 import BillingList from "./pages/BillingList";
 import BillingDetail from "./pages/BillingDetail";
 import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
 import TenantManagement from "./pages/TenantManagement";
+import FlatOwnerDashboard from "./pages/owner/FlatOwnerDashboard";
+import PgOwnerDashboard from "./pages/owner/PgOwnerDashboard";
+import FlatOwnerComplaints from "./pages/owner/FlatOwnerComplaints";
+import PgOwnerComplaints from "./pages/owner/PgOwnerComplaints";
+import FlatOwnerComplaintDetail from "./pages/owner/FlatOwnerComplaintDetail";
+import PgOwnerComplaintDetail from "./pages/owner/PgOwnerComplaintDetail";
+import PgTenantManagement from "./pages/owner/PgTenantManagement";
+import PgProperties from "./pages/owner/PgProperties";
+import PgOwnerPayments from "./pages/owner/PgOwnerPayments";
+import PgTenantPayments from "./pages/PgTenantPayments";
 import Navbar from "./components/Navbar";
 import Loader from "./components/ui/Loader";
+import { getDefaultRouteForRole } from "./utils/roles";
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -58,7 +74,7 @@ function OfficerRoute({ children }) {
   }
 
   if (user?.role !== "OFFICER") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
   }
 
   return children;
@@ -77,13 +93,7 @@ function PublicRoute({ children }) {
 
   // Redirect authenticated users away from auth pages
   if (isAuthenticated) {
-    if (user?.role === "ADMIN") {
-      return <Navigate to="/admin/dashboard" replace />;
-    }
-    if (user?.role === "OFFICER") {
-      return <Navigate to="/officer/dashboard" replace />;
-    }
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
   }
 
   return children;
@@ -105,7 +115,29 @@ function AdminRoute({ children }) {
   }
 
   if (user?.role !== "ADMIN") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
+  }
+
+  return children;
+}
+
+function RoleRoute({ roles, children }) {
+  const { isAuthenticated, user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader size="lg" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  if (!roles.includes(user?.role)) {
+    return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
   }
 
   return children;
@@ -142,6 +174,38 @@ function App() {
             element={
               <PublicRoute>
                 <Register />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/auth/setup-password"
+            element={
+              <PublicRoute>
+                <SetupPassword />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/auth/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPassword />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/auth/reset-password"
+            element={
+              <PublicRoute>
+                <ResetPassword />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/auth/update-password"
+            element={
+              <PublicRoute>
+                <UpdatePassword />
               </PublicRoute>
             }
           />
@@ -191,6 +255,86 @@ function App() {
               <ProtectedRoute>
                 <TenantManagement />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/owner/flat-dashboard"
+            element={
+              <RoleRoute roles={["FLAT_OWNER"]}>
+                <FlatOwnerDashboard />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/owner/pg-dashboard"
+            element={
+              <RoleRoute roles={["PG_OWNER"]}>
+                <PgOwnerDashboard />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/owner/flat-complaints"
+            element={
+              <RoleRoute roles={["FLAT_OWNER"]}>
+                <FlatOwnerComplaints />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/owner/pg-complaints"
+            element={
+              <RoleRoute roles={["PG_OWNER"]}>
+                <PgOwnerComplaints />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/owner/flat-complaints/:id"
+            element={
+              <RoleRoute roles={["FLAT_OWNER"]}>
+                <FlatOwnerComplaintDetail />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/owner/pg-complaints/:id"
+            element={
+              <RoleRoute roles={["PG_OWNER"]}>
+                <PgOwnerComplaintDetail />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/owner/pg-tenants"
+            element={
+              <RoleRoute roles={["PG_OWNER"]}>
+                <PgTenantManagement />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/owner/pg-properties"
+            element={
+              <RoleRoute roles={["PG_OWNER"]}>
+                <PgProperties />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/owner/pg-payments"
+            element={
+              <RoleRoute roles={["PG_OWNER"]}>
+                <PgOwnerPayments />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/pg-tenant/payments"
+            element={
+              <RoleRoute roles={["PG_TENANT"]}>
+                <PgTenantPayments />
+              </RoleRoute>
             }
           />
           <Route
@@ -270,6 +414,14 @@ function App() {
             element={
               <AdminRoute>
                 <AdminEvents />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/role-access"
+            element={
+              <AdminRoute>
+                <AdminRoleAccess />
               </AdminRoute>
             }
           />

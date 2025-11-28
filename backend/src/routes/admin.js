@@ -1,5 +1,5 @@
 import express from "express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import { authenticateToken } from "../middleware/auth.js";
 import { requireAdmin } from "../middleware/roleCheck.js";
@@ -13,6 +13,14 @@ import Event from "../models/Event.js";
 import EventParticipant from "../models/EventParticipant.js";
 import MaintenanceInvoice from "../models/MaintenanceInvoice.js";
 import MaintenancePayment from "../models/MaintenancePayment.js";
+import RentPayment from "../models/RentPayment.js";
+import RoleAccess from "../models/RoleAccess.js";
+import {
+  NAV_KEYS,
+  DEFAULT_ROLE_NAV,
+  setNavForRole,
+  getNavForRole,
+} from "../utils/roleAccess.js";
 import {
   PAYMENT_SOURCE,
   PAYMENT_STATE,
@@ -44,9 +52,22 @@ const buildDateRangeFilter = (from, to) => {
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const buildFlatPayload = (flatDoc) =>
+  flatDoc
+    ? {
+        id: flatDoc._id ? flatDoc._id.toString() : flatDoc.toString(),
+        buildingName: flatDoc.buildingName,
+        block: flatDoc.block,
+        flatNumber: flatDoc.flatNumber,
+        type: flatDoc.type,
+      }
+    : null;
+
 const sanitizeComplaintListItem = (complaint) => ({
   id: complaint._id.toString(),
   title: complaint.title,
+  type: complaint.type,
+  priority: complaint.priority,
   status: complaint.status,
   createdAt: complaint.createdAt,
   citizen: complaint.userId
@@ -56,14 +77,10 @@ const sanitizeComplaintListItem = (complaint) => ({
         email: complaint.userId.email,
       }
     : null,
-  flat: complaint.flatId
-    ? {
-        id: complaint.flatId._id.toString(),
-        buildingName: complaint.flatId.buildingName,
-        block: complaint.flatId.block,
-        flatNumber: complaint.flatId.flatNumber,
-      }
-    : null,
+  flat:
+    buildFlatPayload(complaint.flatId || complaint.propertyId) ||
+    complaint.metadata?.propertySnapshot ||
+    null,
 });
 
 const convertToCsv = (rows, columns) => {
@@ -104,10 +121,14 @@ const sanitizeUser = (user) => ({
 
 const sanitizeFlat = (flat) => ({
   id: flat._id.toString(),
+  type: flat.type,
   buildingName: flat.buildingName,
   block: flat.block,
   flatNumber: flat.flatNumber,
   floor: flat.floor,
+  ownerId: flat.ownerId ? flat.ownerId.toString() : null,
+  address: flat.address || {},
+  pgMetadata: flat.pgMetadata || {},
   isActive: flat.isActive,
   createdAt: flat.createdAt,
 });
@@ -203,7 +224,17 @@ router.post("/users", async (req, res, next) => {
       });
     }
 
-    if (!["CITIZEN", "OFFICER", "ADMIN"].includes(role)) {
+    if (
+      ![
+        "CITIZEN",
+        "OFFICER",
+        "ADMIN",
+        "TENANT",
+        "PG_TENANT",
+        "FLAT_OWNER",
+        "PG_OWNER",
+      ].includes(role)
+    ) {
       return res.status(400).json({ error: "Invalid role" });
     }
 
@@ -234,7 +265,17 @@ router.patch("/users/:id/role", async (req, res, next) => {
     const { id } = req.params;
     const { role } = req.body;
 
-    if (!["CITIZEN", "OFFICER", "ADMIN"].includes(role)) {
+    if (
+      ![
+        "CITIZEN",
+        "OFFICER",
+        "ADMIN",
+        "TENANT",
+        "PG_TENANT",
+        "FLAT_OWNER",
+        "PG_OWNER",
+      ].includes(role)
+    ) {
       return res.status(400).json({ error: "Invalid role" });
     }
 
@@ -282,6 +323,40 @@ router.patch("/users/:id/status", async (req, res, next) => {
 });
 
 /**
+ * ROLE NAV ACCESS
+ */
+router.get("/role-access", async (req, res, next) => {
+  try {
+    const roles = Object.keys(DEFAULT_ROLE_NAV);
+    const records = await RoleAccess.find({
+      role: { $in: roles },
+    }).lean();
+    const existingMap = records.reduce((acc, record) => {
+      acc[record.role] = record.navItems || [];
+      return acc;
+    }, {});
+    const payload = roles.map((role) => ({
+      role,
+      navItems: existingMap[role] || DEFAULT_ROLE_NAV[role] || [],
+    }));
+    res.json({ navKeys: NAV_KEYS, data: payload });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/role-access/:role", async (req, res, next) => {
+  try {
+    const { role } = req.params;
+    const { navItems = [] } = req.body;
+    const updated = await setNavForRole(role, navItems);
+    res.json({ role: role.toUpperCase(), navItems: updated });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * FLATS MANAGEMENT
  */
 router.get("/flats", async (req, res, next) => {
@@ -317,6 +392,10 @@ router.post("/flats", async (req, res, next) => {
       flatNumber,
       floor,
       isActive = true,
+      type = "FLAT",
+      ownerId = null,
+      address = {},
+      pgMetadata = {},
     } = req.body;
 
     if (!buildingName || !flatNumber) {
@@ -325,13 +404,43 @@ router.post("/flats", async (req, res, next) => {
         .json({ error: "buildingName and flatNumber are required" });
     }
 
-    const flat = await Flat.create({
+    if (!["FLAT", "PG"].includes(type)) {
+      return res.status(400).json({ error: "Invalid property type" });
+    }
+
+    const flatPayload = {
       buildingName,
       block,
       flatNumber,
       floor,
       isActive,
-    });
+      type,
+      address,
+    };
+
+    if (type === "PG") {
+      flatPayload.pgMetadata = {
+        totalBeds: pgMetadata.totalBeds ?? null,
+        totalRooms: pgMetadata.totalRooms ?? null,
+        amenities: pgMetadata.amenities || [],
+      };
+    }
+
+    if (ownerId) {
+      const owner = await User.findById(ownerId);
+      if (!owner || !["FLAT_OWNER", "PG_OWNER", "ADMIN"].includes(owner.role)) {
+        return res.status(400).json({ error: "Invalid owner user" });
+      }
+      flatPayload.ownerId = ownerId;
+    }
+
+    const flat = await Flat.create(flatPayload);
+
+    if (ownerId) {
+      await User.findByIdAndUpdate(ownerId, {
+        $addToSet: { ownerProperties: flat._id },
+      });
+    }
 
     res.status(201).json(sanitizeFlat(flat));
   } catch (error) {
@@ -348,7 +457,22 @@ router.post("/flats", async (req, res, next) => {
 router.patch("/flats/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { buildingName, block, flatNumber, floor, isActive } = req.body;
+    const {
+      buildingName,
+      block,
+      flatNumber,
+      floor,
+      isActive,
+      type,
+      ownerId,
+      address,
+      pgMetadata,
+    } = req.body;
+
+    const existingFlat = await Flat.findById(id);
+    if (!existingFlat) {
+      return res.status(404).json({ error: "Flat not found" });
+    }
 
     const updateData = {};
     if (typeof buildingName !== "undefined")
@@ -357,14 +481,65 @@ router.patch("/flats/:id", async (req, res, next) => {
     if (typeof flatNumber !== "undefined") updateData.flatNumber = flatNumber;
     if (typeof floor !== "undefined") updateData.floor = floor;
     if (typeof isActive !== "undefined") updateData.isActive = isActive;
+    if (typeof type !== "undefined") {
+      if (!["FLAT", "PG"].includes(type)) {
+        return res.status(400).json({ error: "Invalid property type" });
+      }
+      updateData.type = type;
+    }
+    if (typeof address !== "undefined") {
+      updateData.address = address;
+    }
+    if (typeof pgMetadata !== "undefined") {
+      updateData.pgMetadata = {
+        totalBeds: pgMetadata?.totalBeds ?? existingFlat.pgMetadata?.totalBeds,
+        totalRooms:
+          pgMetadata?.totalRooms ?? existingFlat.pgMetadata?.totalRooms,
+        amenities: pgMetadata?.amenities || existingFlat.pgMetadata?.amenities,
+      };
+    }
+
+    let ownerChanged = false;
+    let previousOwnerId = existingFlat.ownerId
+      ? existingFlat.ownerId.toString()
+      : null;
+    let newOwnerId = previousOwnerId;
+
+    if (typeof ownerId !== "undefined") {
+      if (ownerId === null || ownerId === "") {
+        updateData.ownerId = null;
+        ownerChanged = !!previousOwnerId;
+        newOwnerId = null;
+      } else {
+        const ownerUser = await User.findById(ownerId);
+        if (
+          !ownerUser ||
+          !["FLAT_OWNER", "PG_OWNER", "ADMIN"].includes(ownerUser.role)
+        ) {
+          return res.status(400).json({ error: "Invalid owner user" });
+        }
+        updateData.ownerId = ownerId;
+        ownerChanged = ownerId !== previousOwnerId;
+        newOwnerId = ownerId;
+      }
+    }
 
     const flat = await Flat.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     });
 
-    if (!flat) {
-      return res.status(404).json({ error: "Flat not found" });
+    if (ownerChanged) {
+      if (previousOwnerId) {
+        await User.findByIdAndUpdate(previousOwnerId, {
+          $pull: { ownerProperties: flat._id },
+        });
+      }
+      if (newOwnerId) {
+        await User.findByIdAndUpdate(newOwnerId, {
+          $addToSet: { ownerProperties: flat._id },
+        });
+      }
     }
 
     res.json(sanitizeFlat(flat));
@@ -395,6 +570,12 @@ router.delete("/flats/:id", async (req, res, next) => {
 
     if (!result) {
       return res.status(404).json({ error: "Flat not found" });
+    }
+
+    if (result.ownerId) {
+      await User.findByIdAndUpdate(result.ownerId, {
+        $pull: { ownerProperties: result._id },
+      });
     }
 
     res.status(204).end();
@@ -548,6 +729,13 @@ router.post("/flat-assignments", async (req, res, next) => {
       }
     }
 
+    if (relation === "OWNER") {
+      await Flat.findByIdAndUpdate(flatId, { ownerId: userId });
+      await User.findByIdAndUpdate(userId, {
+        $addToSet: { ownerProperties: flatId },
+      });
+    }
+
     await assignment.populate([
       { path: "userId", select: "name email role" },
       { path: "flatId", select: "buildingName block flatNumber floor" },
@@ -605,6 +793,16 @@ router.delete("/flat-assignments/:id", async (req, res, next) => {
     }
 
     await UserFlat.findByIdAndDelete(id);
+
+    if (assignment.relation === "OWNER") {
+      const flat = await Flat.findById(assignment.flatId);
+      if (flat?.ownerId?.toString() === assignment.userId.toString()) {
+        await Flat.findByIdAndUpdate(assignment.flatId, { ownerId: null });
+      }
+      await User.findByIdAndUpdate(assignment.userId, {
+        $pull: { ownerProperties: assignment.flatId },
+      });
+    }
 
     res.json({ message: "Assignment deleted successfully" });
   } catch (error) {
@@ -1244,7 +1442,8 @@ const fetchComplaints = async ({ status, from, to, search, category }) => {
 
   return Complaint.find(filter)
     .populate("userId", "name email")
-    .populate("flatId", "buildingName block flatNumber")
+    .populate("flatId", "buildingName block flatNumber type")
+    .populate("propertyId", "buildingName block flatNumber type")
     .sort({ createdAt: -1 })
     .lean();
 };
@@ -1269,7 +1468,7 @@ router.get("/complaints/open", async (req, res, next) => {
   try {
     const { from, to, search, category } = req.query;
     const complaints = await fetchComplaints({
-      status: { $in: ["NEW", "IN_PROGRESS"] },
+      status: { $in: ["OPEN", "IN_PROGRESS"] },
       from,
       to,
       search,
@@ -1285,7 +1484,7 @@ router.get("/complaints/resolved", async (req, res, next) => {
   try {
     const { from, to, search, category } = req.query;
     const complaints = await fetchComplaints({
-      status: "RESOLVED",
+      status: { $in: ["RESOLVED", "CLOSED"] },
       from,
       to,
       search,
@@ -1311,6 +1510,7 @@ router.get("/dashboard/summary", async (req, res, next) => {
       categoryAggregation,
       activeAnnouncementCount,
       upcomingEventsCount,
+      rentPaymentStats,
     ] = await Promise.all([
       User.countDocuments({ role: "CITIZEN" }),
       Flat.countDocuments({}),
@@ -1341,6 +1541,22 @@ router.get("/dashboard/summary", async (req, res, next) => {
         status: { $ne: "CANCELLED" },
         date: { $gte: now },
       }),
+      RentPayment.aggregate([
+        {
+          $group: {
+            _id: "$status",
+            count: { $sum: 1 },
+            totalAmount: {
+              $sum: {
+                $add: [
+                  { $ifNull: ["$baseAmount", "$amount"] },
+                  { $ifNull: ["$lateFeeAmount", 0] },
+                ],
+              },
+            },
+          },
+        },
+      ]),
     ]);
 
     const statusMap = statusAggregation.reduce((acc, row) => {
@@ -1353,20 +1569,30 @@ router.get("/dashboard/summary", async (req, res, next) => {
       count: row.count,
     }));
 
+    const rentPaymentMap = rentPaymentStats.reduce((acc, row) => {
+      acc[row._id] = { count: row.count, totalAmount: row.totalAmount || 0 };
+      return acc;
+    }, {});
+
     res.json({
       stats: {
         totalCitizens: citizenCount,
         totalFlats: flatCount,
-        openComplaints: (statusMap.NEW || 0) + (statusMap.IN_PROGRESS || 0),
-        resolvedComplaints: statusMap.RESOLVED || 0,
+        openComplaints: (statusMap.OPEN || 0) + (statusMap.IN_PROGRESS || 0),
+        resolvedComplaints: (statusMap.RESOLVED || 0) + (statusMap.CLOSED || 0),
         activeAnnouncements: activeAnnouncementCount,
         upcomingEvents: upcomingEventsCount,
+        rentPaymentsPaid: rentPaymentMap.PAID?.count || 0,
+        rentPaymentsPending: rentPaymentMap.PENDING?.count || 0,
+        rentPaymentsTotalReceived: rentPaymentMap.PAID?.totalAmount || 0,
+        rentPaymentsTotalPending: rentPaymentMap.PENDING?.totalAmount || 0,
       },
       charts: {
         complaintsByStatus: [
-          { status: "NEW", count: statusMap.NEW || 0 },
+          { status: "OPEN", count: statusMap.OPEN || 0 },
           { status: "IN_PROGRESS", count: statusMap.IN_PROGRESS || 0 },
           { status: "RESOLVED", count: statusMap.RESOLVED || 0 },
+          { status: "CLOSED", count: statusMap.CLOSED || 0 },
         ],
         complaintsByCategory: categoryData,
       },
@@ -1416,7 +1642,7 @@ router.get("/export/:type", async (req, res, next) => {
       }
       case "complaints_open": {
         const complaints = await fetchComplaints({
-          status: { $in: ["NEW", "IN_PROGRESS"] },
+          status: { $in: ["OPEN", "IN_PROGRESS"] },
           from,
           to,
           search,
@@ -1443,7 +1669,7 @@ router.get("/export/:type", async (req, res, next) => {
       }
       case "complaints_resolved": {
         const complaints = await fetchComplaints({
-          status: "RESOLVED",
+          status: { $in: ["RESOLVED", "CLOSED"] },
           from,
           to,
           search,

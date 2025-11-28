@@ -24,6 +24,15 @@ function TenantManagement() {
     roomType: "ALL", // ALL, AC, NON_AC
     foodIncluded: "ALL", // ALL, true, false
   });
+  const [showNewTenantForm, setShowNewTenantForm] = useState(false);
+  const [creatingTenantUser, setCreatingTenantUser] = useState(false);
+  const [newTenantUser, setNewTenantUser] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+  });
+  const [tempPasswordInfo, setTempPasswordInfo] = useState(null);
   const [formData, setFormData] = useState({
     tenantUserId: "",
     rentAmount: "",
@@ -122,6 +131,9 @@ function TenantManagement() {
     });
     setShowAddForm(false);
     setEditingTenantId(null);
+    setShowNewTenantForm(false);
+    setNewTenantUser({ name: "", email: "", phone: "", password: "" });
+    setTempPasswordInfo(null);
   };
 
   // Calculate lease end date based on start date and rent due date
@@ -233,6 +245,65 @@ function TenantManagement() {
       showToast.error(err.message || "Failed to save tenant details");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateTenantUser = async () => {
+    if (!selectedFlatId) {
+      showToast.error("Select a flat before adding a tenant user");
+      return;
+    }
+    if (!newTenantUser.name.trim() || !newTenantUser.email.trim()) {
+      showToast.error("Name and email are required for tenant users");
+      return;
+    }
+    const suppliedPassword = (newTenantUser.password || "").trim();
+    if (suppliedPassword.length > 0 && suppliedPassword.length < 6) {
+      showToast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    try {
+      setCreatingTenantUser(true);
+      const trimmedPhone = (newTenantUser.phone || "").trim();
+      const payload = {
+        flatId: selectedFlatId,
+        name: newTenantUser.name.trim(),
+        email: newTenantUser.email.trim(),
+        phone: trimmedPhone,
+      };
+      if (suppliedPassword.length >= 6) {
+        payload.password = suppliedPassword;
+      }
+
+      const response = await api.createTenantUser(payload);
+      const createdUser = response.user;
+      setUsers((prev) =>
+        [...prev, createdUser].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        )
+      );
+      setFormData((prev) => ({
+        ...prev,
+        tenantUserId: createdUser.id,
+        contactEmail: prev.contactEmail || createdUser.email,
+        contactPhone: prev.contactPhone || createdUser.phone || "",
+      }));
+      setTempPasswordInfo(
+        response.temporaryPassword
+          ? {
+              email: createdUser.email,
+              password: response.temporaryPassword,
+            }
+          : null
+      );
+      setShowNewTenantForm(false);
+      setNewTenantUser({ name: "", email: "", phone: "", password: "" });
+      showToast.success("Tenant user created. Share credentials with them.");
+    } catch (err) {
+      showToast.error(err.message || "Failed to create tenant user");
+    } finally {
+      setCreatingTenantUser(false);
     }
   };
 
@@ -432,26 +503,158 @@ function TenantManagement() {
                       <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                         Select Tenant
                       </label>
-                      <select
-                        value={formData.tenantUserId}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            tenantUserId: e.target.value,
-                          })
-                        }
-                        required={!editingTenantId}
-                        disabled={!!editingTenantId}
-                        className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] disabled:opacity-50"
-                      >
-                        <option value="">Select tenant user</option>
-                        {users.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name} ({u.email})
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex flex-col gap-2">
+                        <select
+                          value={formData.tenantUserId}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              tenantUserId: e.target.value,
+                            })
+                          }
+                          required={!editingTenantId}
+                          disabled={!!editingTenantId}
+                          className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] disabled:opacity-50"
+                        >
+                          <option value="">Select tenant user</option>
+                          {users.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.name} ({u.email})
+                            </option>
+                          ))}
+                        </select>
+                        {!editingTenantId && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowNewTenantForm((prev) => !prev)
+                            }
+                            className="self-start text-sm font-medium text-[var(--color-primary)] hover:underline"
+                          >
+                            {showNewTenantForm
+                              ? "Close tenant user form"
+                              : "Can't find tenant? Add new tenant user"}
+                          </button>
+                        )}
+                      </div>
+                      {tempPasswordInfo && (
+                        <div className="mt-3 p-3 rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+                          <p className="text-sm text-[var(--color-text-secondary)]">
+                            Share this temporary password with{" "}
+                            <span className="font-semibold text-[var(--color-text-primary)]">
+                              {tempPasswordInfo.email}
+                            </span>
+                          </p>
+                          <p className="text-lg font-mono font-semibold text-[var(--color-text-primary)]">
+                            {tempPasswordInfo.password}
+                          </p>
+                        </div>
+                      )}
                     </div>
+
+                    {showNewTenantForm && !editingTenantId && (
+                      <div className="p-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-[var(--color-text-primary)]">
+                            New Tenant User
+                          </h4>
+                          <span className="text-xs text-[var(--color-text-secondary)]">
+                            Details for login access
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-[var(--color-text-secondary)] mb-1">
+                              Full Name
+                            </label>
+                            <input
+                              type="text"
+                              value={newTenantUser.name}
+                              onChange={(e) =>
+                                setNewTenantUser({
+                                  ...newTenantUser,
+                                  name: e.target.value,
+                                })
+                              }
+                              placeholder="Tenant name"
+                              className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-[var(--color-text-secondary)] mb-1">
+                              Email
+                            </label>
+                            <input
+                              type="email"
+                              value={newTenantUser.email}
+                              onChange={(e) =>
+                                setNewTenantUser({
+                                  ...newTenantUser,
+                                  email: e.target.value,
+                                })
+                              }
+                              placeholder="tenant@email.com"
+                              className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-[var(--color-text-secondary)] mb-1">
+                              Phone (optional)
+                            </label>
+                            <input
+                              type="tel"
+                              value={newTenantUser.phone}
+                              onChange={(e) =>
+                                setNewTenantUser({
+                                  ...newTenantUser,
+                                  phone: e.target.value,
+                                })
+                              }
+                              placeholder="+91 9876543210"
+                              className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-[var(--color-text-secondary)] mb-1">
+                              Password (optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={newTenantUser.password}
+                              onChange={(e) =>
+                                setNewTenantUser({
+                                  ...newTenantUser,
+                                  password: e.target.value,
+                                })
+                              }
+                              placeholder="Leave blank to auto-generate"
+                              className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+                            />
+                          </div>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-secondary)]">
+                          Password must be at least 6 characters. Leave blank to
+                          auto-generate a secure password.
+                        </p>
+                        <div className="flex gap-3 flex-wrap">
+                          <Button
+                            type="button"
+                            onClick={handleCreateTenantUser}
+                            loading={creatingTenantUser}
+                          >
+                            Save Tenant User
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setShowNewTenantForm(false)}
+                            disabled={creatingTenantUser}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>

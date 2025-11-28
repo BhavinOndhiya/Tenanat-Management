@@ -1,4 +1,5 @@
 import express from "express";
+import bcrypt from "bcryptjs";
 import { authenticateToken } from "../middleware/auth.js";
 import Tenant from "../models/Tenant.js";
 import UserFlat from "../models/UserFlat.js";
@@ -47,6 +48,78 @@ router.get("/users", async (req, res, next) => {
       }))
     );
   } catch (error) {
+    next(error);
+  }
+});
+
+const generateTemporaryPassword = () =>
+  `tenant-${Math.random().toString(36).slice(-8)}`;
+
+// POST /api/tenants/users - Allow owners/admins to create tenant users
+router.post("/users", async (req, res, next) => {
+  try {
+    const { flatId, name, email, phone, password } = req.body;
+
+    if (!flatId || !name || !email) {
+      return res.status(400).json({
+        error: "flatId, name, and email are required",
+      });
+    }
+
+    const canManage = await canManageTenant(req.user.id, req.user.role, flatId);
+
+    if (!canManage) {
+      return res.status(403).json({
+        error: "You don't have permission to add tenant users for this flat",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res
+        .status(400)
+        .json({ error: "A user with this email already exists" });
+    }
+
+    let finalPassword =
+      typeof password === "string" && password.trim().length >= 6
+        ? password.trim()
+        : null;
+
+    if (!finalPassword) {
+      finalPassword = generateTemporaryPassword();
+    }
+
+    const passwordHash = await bcrypt.hash(finalPassword, 10);
+
+    const tenantUser = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      passwordHash,
+      role: "TENANT",
+      phone: phone?.trim() || "",
+      isActive: true,
+    });
+
+    res.status(201).json({
+      user: {
+        id: tenantUser._id.toString(),
+        name: tenantUser.name,
+        email: tenantUser.email,
+        role: tenantUser.role,
+        phone: tenantUser.phone || "",
+      },
+      temporaryPassword:
+        typeof password === "string" && password.trim().length >= 6
+          ? null
+          : finalPassword,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
     next(error);
   }
 });

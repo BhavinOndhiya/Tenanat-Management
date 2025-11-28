@@ -7,21 +7,33 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "db:seed": "node src/db/seed.js"
+    "db:seed": "node src/db/seed.js",
+    "seed:dashboard": "node scripts/seedDashboardDemo.js",
+    "sls:deploy": "serverless deploy",
+    "sls:deploy:prod": "serverless deploy --stage prod",
+    "sls:remove": "serverless remove",
+    "sls:offline": "serverless offline",
+    "sls:logs": "serverless logs -f api -t"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
-    "razorpay": "^2.9.6"
+    "nodemailer": "^7.0.11",
+    "pdfkit": "^0.17.2",
+    "razorpay": "^2.9.6",
+    "serverless-http": "^3.2.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "serverless": "^3.38.0",
+    "serverless-dotenv-plugin": "^6.0.0",
+    "serverless-offline": "^13.3.0"
   }
 }

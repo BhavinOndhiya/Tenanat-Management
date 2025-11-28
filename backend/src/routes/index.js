@@ -9,21 +9,40 @@ import flatRoutes from "./flats.js";
 import eventRoutes from "./events.js";
 import billingRoutes from "./billing.js";
 import tenantRoutes from "./tenants.js";
+import dashboardRoutes from "./dashboard.js";
+import ownerRoutes from "./owner.js";
+import pgTenantRoutes from "./pgTenant.js";
+import testEmailRoutes from "./testEmail.js";
 import { authenticateToken } from "../middleware/auth.js";
 import User from "../models/User.js";
+import { getNavForRole } from "../utils/roleAccess.js";
 
 const router = express.Router();
 
 // GET /api/me
 router.get("/me", authenticateToken, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).select(
-      "name email role isActive avatarUrl"
-    );
+    const user = await User.findById(req.user.id)
+      .select(
+        "name email role isActive avatarUrl assignedProperty ownerProperties"
+      )
+      .populate("assignedProperty", "buildingName block flatNumber floor type");
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
+
+    const navAccess = await getNavForRole(user.role);
+    const assignedProperty = user.assignedProperty
+      ? {
+          id: user.assignedProperty._id.toString(),
+          buildingName: user.assignedProperty.buildingName,
+          block: user.assignedProperty.block,
+          flatNumber: user.assignedProperty.flatNumber,
+          floor: user.assignedProperty.floor,
+          type: user.assignedProperty.type,
+        }
+      : null;
 
     res.json({
       id: user._id.toString(),
@@ -32,6 +51,8 @@ router.get("/me", authenticateToken, async (req, res, next) => {
       role: user.role || "CITIZEN",
       isActive: user.isActive,
       avatarUrl: user.avatarUrl || null,
+      navAccess,
+      assignedProperty,
     });
   } catch (error) {
     next(error);
@@ -48,5 +69,9 @@ router.use("/flats", flatRoutes);
 router.use("/events", eventRoutes);
 router.use("/billing", billingRoutes);
 router.use("/tenants", tenantRoutes);
+router.use("/dashboard", dashboardRoutes);
+router.use("/owner", ownerRoutes);
+router.use("/pg-tenant", pgTenantRoutes);
+router.use("/test-email", testEmailRoutes);
 
 export default router;

@@ -29,8 +29,11 @@ function ComplaintForm({ onComplaintCreated, flats = [] }) {
       setSelectedFlatId("");
       return;
     }
+    const firstFlat = flats[0];
     const primary = flats.find((assignment) => assignment.isPrimary);
-    setSelectedFlatId(primary?.flat?.id || flats[0]?.flat?.id || "");
+    setSelectedFlatId(
+      primary?.flat?.id || firstFlat?.flat?.id || firstFlat?.id || ""
+    );
   }, [flats]);
 
   const handleSubmit = async (e) => {
@@ -80,7 +83,7 @@ function ComplaintForm({ onComplaintCreated, flats = [] }) {
         </motion.div>
       )}
 
-      {!!flats.length && (
+      {!!flats.length && selectedFlatId && (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-4 text-sm text-[var(--color-text-secondary)] space-y-2">
           <strong className="block text-[var(--color-text-primary)]">
             Complaints will be linked to your flat
@@ -88,13 +91,19 @@ function ComplaintForm({ onComplaintCreated, flats = [] }) {
           <p>
             Selected flat:{" "}
             <span className="font-semibold text-[var(--color-text-primary)]">
-              {flats.find((item) => item.flat.id === selectedFlatId)?.flat
-                ?.buildingName || "N/A"}
+              {flats.find(
+                (item) =>
+                  item.flat.id === selectedFlatId || item.id === selectedFlatId
+              )?.flat?.buildingName ||
+                flats.find((item) => item.id === selectedFlatId)
+                  ?.buildingName ||
+                "N/A"}
               {", "}
-              {
-                flats.find((item) => item.flat.id === selectedFlatId)?.flat
-                  ?.flatNumber
-              }
+              {flats.find(
+                (item) =>
+                  item.flat.id === selectedFlatId || item.id === selectedFlatId
+              )?.flat?.flatNumber ||
+                flats.find((item) => item.id === selectedFlatId)?.flatNumber}
             </span>
           </p>
           {flats.length > 1 && (

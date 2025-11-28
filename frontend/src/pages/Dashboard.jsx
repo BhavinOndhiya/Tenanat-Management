@@ -8,6 +8,7 @@ import ComplaintForm from "../components/ComplaintForm";
 import ComplaintsList from "../components/ComplaintsList";
 import SearchBar from "../components/SearchBar";
 import FilterBar from "../components/FilterBar";
+import RentPaymentCard from "../components/RentPaymentCard";
 import Card from "../components/ui/Card";
 import Loader from "../components/ui/Loader";
 import { SkeletonCard } from "../components/ui/Skeleton";
@@ -31,6 +32,8 @@ function Dashboard() {
   const [announcementLoading, setAnnouncementLoading] = useState(true);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [pgProfile, setPgProfile] = useState(null);
+  const [pgProfileLoading, setPgProfileLoading] = useState(true);
 
   const fetchComplaints = async () => {
     try {
@@ -56,7 +59,10 @@ function Dashboard() {
       setFlatLoading(true);
       setAnnouncementLoading(true);
       setEventsLoading(true);
-      const [flats, announcementData, eventsData] = await Promise.all([
+      if (user?.role === "PG_TENANT") {
+        setPgProfileLoading(true);
+      }
+      const promises = [
         api.getMyFlats().catch((err) => {
           console.warn("Failed to load flats", err);
           return [];
@@ -69,14 +75,31 @@ function Dashboard() {
           console.warn("Failed to load events", err);
           return [];
         }),
-      ]);
-      setFlatAssignments(flats);
-      setAnnouncements(announcementData.slice(0, 4));
-      setUpcomingEvents(eventsData.slice(0, 3));
+      ];
+
+      if (user?.role === "PG_TENANT") {
+        promises.push(
+          api.getPgTenantProfile().catch((err) => {
+            console.warn("Failed to load PG profile", err);
+            return null;
+          })
+        );
+      }
+
+      const results = await Promise.all(promises);
+      setFlatAssignments(results[0]);
+      setAnnouncements(results[1].slice(0, 4));
+      setUpcomingEvents(results[2].slice(0, 3));
+      if (user?.role === "PG_TENANT") {
+        setPgProfile(results[3]);
+      }
     } finally {
       setFlatLoading(false);
       setAnnouncementLoading(false);
       setEventsLoading(false);
+      if (user?.role === "PG_TENANT") {
+        setPgProfileLoading(false);
+      }
     }
   };
 
@@ -133,6 +156,29 @@ function Dashboard() {
     });
   }, [complaints, searchQuery, filters]);
 
+  const fallbackAssignments =
+    flatAssignments.length === 0 &&
+    user?.role === "PG_TENANT" &&
+    user?.assignedProperty
+      ? [
+          {
+            id: user.assignedProperty.id,
+            relation: "PG",
+            isPrimary: true,
+            flat: {
+              id: user.assignedProperty.id,
+              buildingName: user.assignedProperty.buildingName,
+              block: user.assignedProperty.block,
+              flatNumber: user.assignedProperty.flatNumber,
+              floor: user.assignedProperty.floor ?? null,
+            },
+          },
+        ]
+      : [];
+
+  const visibleAssignments =
+    flatAssignments.length > 0 ? flatAssignments : fallbackAssignments;
+
   return (
     <div className="dashboard space-y-8">
       <ScrollAnimation>
@@ -156,53 +202,190 @@ function Dashboard() {
       </ScrollAnimation>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card padding="lg">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
-              My Flat
-            </h2>
-            <span className="text-xs text-[var(--color-text-secondary)]">
-              {flatAssignments.length > 1 && "Multiple units"}
-            </span>
-          </div>
-          {flatLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader />
+        {user?.role === "PG_TENANT" ? (
+          <Card padding="lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+                My PG
+              </h2>
             </div>
-          ) : flatAssignments.length === 0 ? (
-            <p className="text-[var(--color-text-secondary)] text-sm">
-              No flat assignment yet. Contact your admin to link your apartment.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {flatAssignments.map((assignment) => (
-                <div
-                  key={assignment.id}
-                  className="border border-[var(--color-border)] rounded-lg px-3 py-3"
-                >
+            {pgProfileLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader />
+              </div>
+            ) : !pgProfile ? (
+              <p className="text-[var(--color-text-secondary)] text-sm">
+                PG profile not found. Please contact your owner.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {pgProfile.property && (
+                  <div className="border border-[var(--color-border)] rounded-lg px-4 py-3">
+                    <p className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
+                      {pgProfile.property.name}
+                    </p>
+                    {pgProfile.property.address && (
+                      <p className="text-sm text-[var(--color-text-secondary)] mb-1">
+                        {[
+                          pgProfile.property.address.line1,
+                          pgProfile.property.address.line2,
+                          pgProfile.property.address.city,
+                          pgProfile.property.address.state,
+                          pgProfile.property.address.pincode,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                    )}
+                    {pgProfile.property.address?.landmark && (
+                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                        Near {pgProfile.property.address.landmark}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="border border-[var(--color-border)] rounded-lg px-3 py-2">
+                    <p className="text-xs text-[var(--color-text-secondary)] mb-1">
+                      Room Number
+                    </p>
+                    <p className="text-base font-semibold text-[var(--color-text-primary)]">
+                      {pgProfile.roomNumber || "—"}
+                    </p>
+                  </div>
+                  <div className="border border-[var(--color-border)] rounded-lg px-3 py-2">
+                    <p className="text-xs text-[var(--color-text-secondary)] mb-1">
+                      Bed Number
+                    </p>
+                    <p className="text-base font-semibold text-[var(--color-text-primary)]">
+                      {pgProfile.bedNumber || "—"}
+                    </p>
+                  </div>
+                </div>
+                <div className="border border-[var(--color-border)] rounded-lg px-3 py-2">
+                  <p className="text-xs text-[var(--color-text-secondary)] mb-1">
+                    Monthly Rent
+                  </p>
                   <p className="text-lg font-semibold text-[var(--color-text-primary)]">
-                    {assignment.flat.buildingName} ·{" "}
-                    {assignment.flat.flatNumber}
+                    ₹{pgProfile.monthlyRent?.toLocaleString("en-IN") || 0}
                   </p>
-                  <p className="text-sm text-[var(--color-text-secondary)]">
-                    Block {assignment.flat.block || "—"} · Floor{" "}
-                    {assignment.flat.floor ?? "—"} · {assignment.relation}
-                  </p>
-                  {assignment.isPrimary && (
-                    <span className="inline-flex mt-2 px-2 py-1 rounded-full text-xs font-semibold bg-[var(--color-primary)] text-white">
-                      Primary home
+                </div>
+                {pgProfile.servicesIncluded &&
+                  pgProfile.servicesIncluded.length > 0 && (
+                    <div className="border border-[var(--color-border)] rounded-lg px-3 py-2">
+                      <p className="text-xs text-[var(--color-text-secondary)] mb-2">
+                        Services Included
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {pgProfile.servicesIncluded.map((service, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded text-xs font-medium"
+                          >
+                            {service}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[var(--color-text-secondary)]">
+                      Sharing:{" "}
                     </span>
+                    <span className="font-medium text-[var(--color-text-primary)]">
+                      {pgProfile.sharingType || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--color-text-secondary)]">
+                      AC:{" "}
+                    </span>
+                    <span className="font-medium text-[var(--color-text-primary)]">
+                      {pgProfile.acPreference === "AC" ? "Yes" : "No"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--color-text-secondary)]">
+                      Food:{" "}
+                    </span>
+                    <span className="font-medium text-[var(--color-text-primary)]">
+                      {pgProfile.foodPreference === "WITH_FOOD"
+                        ? "Included"
+                        : "Not Included"}
+                    </span>
+                  </div>
+                  {pgProfile.moveInDate && (
+                    <div>
+                      <span className="text-[var(--color-text-secondary)]">
+                        Move-in:{" "}
+                      </span>
+                      <span className="font-medium text-[var(--color-text-primary)]">
+                        {new Date(pgProfile.moveInDate).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          }
+                        )}
+                      </span>
+                    </div>
                   )}
                 </div>
-              ))}
+              </div>
+            )}
+          </Card>
+        ) : (
+          <Card padding="lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+                My Flat
+              </h2>
+              <span className="text-xs text-[var(--color-text-secondary)]">
+                {visibleAssignments.length > 1 && "Multiple units"}
+              </span>
             </div>
-          )}
-        </Card>
+            {flatLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader />
+              </div>
+            ) : visibleAssignments.length === 0 ? (
+              <p className="text-[var(--color-text-secondary)] text-sm">
+                No flat assignment yet. Contact your admin to link your
+                apartment.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {visibleAssignments.map((assignment) => (
+                  <div
+                    key={assignment.id}
+                    className="border border-[var(--color-border)] rounded-lg px-3 py-3"
+                  >
+                    <p className="text-lg font-semibold text-[var(--color-text-primary)]">
+                      {assignment.flat.buildingName} ·{" "}
+                      {assignment.flat.flatNumber}
+                    </p>
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                      Block {assignment.flat.block || "—"} · Floor{" "}
+                      {assignment.flat.floor ?? "—"} · {assignment.relation}
+                    </p>
+                    {assignment.isPrimary && (
+                      <span className="inline-flex mt-2 px-2 py-1 rounded-full text-xs font-semibold bg-[var(--color-primary)] text-white">
+                        Primary home
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
 
         <Card padding="lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
-              Notices & Maintenance
+              Notices, Events & Maintenance
             </h2>
             <button
               type="button"
@@ -212,13 +395,13 @@ function Dashboard() {
               Refresh
             </button>
           </div>
-          {announcementLoading ? (
+          {announcementLoading || eventsLoading ? (
             <div className="flex justify-center py-8">
               <Loader />
             </div>
-          ) : announcements.length === 0 ? (
+          ) : announcements.length === 0 && upcomingEvents.length === 0 ? (
             <p className="text-[var(--color-text-secondary)] text-sm">
-              No active announcements.
+              No announcements or events.
             </p>
           ) : (
             <div className="space-y-3">
@@ -244,37 +427,19 @@ function Dashboard() {
                   </p>
                 </div>
               ))}
-            </div>
-          )}
-        </Card>
-
-        <Card padding="lg">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
-              Upcoming Events
-            </h2>
-            <Link to="/events" className="text-xs text-[var(--color-primary)]">
-              View all
-            </Link>
-          </div>
-          {eventsLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader />
-            </div>
-          ) : upcomingEvents.length === 0 ? (
-            <p className="text-[var(--color-text-secondary)] text-sm">
-              No events scheduled yet.
-            </p>
-          ) : (
-            <div className="space-y-3">
               {upcomingEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="border border-[var(--color-border)] rounded-lg px-3 py-2"
+                  className="border border-[var(--color-border)] rounded-lg px-3 py-2 bg-blue-50 dark:bg-blue-900/20"
                 >
-                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                    {event.title}
-                  </p>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-[var(--color-text-primary)]">
+                      {event.title}
+                    </span>
+                    <span className="text-xs uppercase text-[var(--color-text-tertiary)]">
+                      EVENT
+                    </span>
+                  </div>
                   <p className="text-xs text-[var(--color-text-secondary)]">
                     {new Date(event.date).toLocaleDateString()} ·{" "}
                     {event.location}
@@ -286,42 +451,47 @@ function Dashboard() {
         </Card>
       </div>
 
+      {user?.role === "PG_TENANT" && (
+        <ScrollAnimation delay={0.1}>
+          <div className="space-y-4">
+            <RentPaymentCard />
+            <Card padding="md">
+              <div className="flex items-center justify-between">
+                <p className="text-[var(--color-text-secondary)]">
+                  View all your payment history and invoices
+                </p>
+                <Link
+                  to="/pg-tenant/payments"
+                  className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
+                >
+                  View Payment History
+                </Link>
+              </div>
+            </Card>
+          </div>
+        </ScrollAnimation>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <ScrollAnimation delay={0.2}>
           <Card padding="lg">
             <h2 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">
-              Create New Complaint
+              My Complaints
+              {!loading && (
+                <span className="ml-2 text-sm font-normal text-[var(--color-text-secondary)]">
+                  ({filteredComplaints.length} of {complaints.length})
+                </span>
+              )}
             </h2>
-            <ComplaintForm
-              onComplaintCreated={handleComplaintCreated}
-              flats={flatAssignments}
-            />
-          </Card>
-        </ScrollAnimation>
-
-        <ScrollAnimation delay={0.3}>
-          <Card padding="lg">
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-semibold text-[var(--color-text-primary)]">
-                  My Complaints
-                  {!loading && (
-                    <span className="ml-2 text-sm font-normal text-[var(--color-text-secondary)]">
-                      ({filteredComplaints.length} of {complaints.length})
-                    </span>
-                  )}
-                </h2>
-              </div>
-              <div className="space-y-4">
-                <SearchBar
-                  onSearch={handleSearchChange}
-                  placeholder="Search complaints by title or description..."
-                />
-                <FilterBar
-                  onFilterChange={handleFilterChange}
-                  currentFilters={filters}
-                />
-              </div>
+            <div className="space-y-4 mb-6">
+              <SearchBar
+                onSearch={handleSearchChange}
+                placeholder="Search complaints by title or description..."
+              />
+              <FilterBar
+                onFilterChange={handleFilterChange}
+                currentFilters={filters}
+              />
             </div>
             {loading ? (
               <div className="space-y-4">
@@ -344,6 +514,18 @@ function Dashboard() {
                 totalComplaints={complaints.length}
               />
             )}
+          </Card>
+        </ScrollAnimation>
+
+        <ScrollAnimation delay={0.3}>
+          <Card padding="lg">
+            <h2 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">
+              Create New Complaint
+            </h2>
+            <ComplaintForm
+              onComplaintCreated={handleComplaintCreated}
+              flats={visibleAssignments}
+            />
           </Card>
         </ScrollAnimation>
       </div>

@@ -13,6 +13,7 @@ function Button({
   onClick,
   type = "button",
   className = "",
+  as: ComponentProp,
   ...props
 }) {
   const baseStyles = `
@@ -56,17 +57,24 @@ function Button({
     lg: "px-6 py-3 text-lg",
   };
 
+  const MotionComponent = ComponentProp ? motion(ComponentProp) : motion.button;
+
+  const componentProps = {
+    onClick,
+    disabled: disabled || loading,
+    className: `${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`,
+    whileHover: { scale: disabled || loading ? 1 : 1.02 },
+    whileTap: { scale: disabled || loading ? 1 : 0.98 },
+    transition: { duration: 0.2 },
+    ...props,
+  };
+
+  if (!ComponentProp) {
+    componentProps.type = type;
+  }
+
   return (
-    <motion.button
-      type={type}
-      onClick={onClick}
-      disabled={disabled || loading}
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
-      whileHover={{ scale: disabled || loading ? 1 : 1.02 }}
-      whileTap={{ scale: disabled || loading ? 1 : 0.98 }}
-      transition={{ duration: 0.2 }}
-      {...props}
-    >
+    <MotionComponent {...componentProps}>
       {loading ? (
         <span className="flex items-center gap-2">
           <svg
@@ -94,7 +102,7 @@ function Button({
       ) : (
         children
       )}
-    </motion.button>
+    </MotionComponent>
   );
 }
 

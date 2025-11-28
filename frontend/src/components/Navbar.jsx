@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import ThemeToggle from "./ui/ThemeToggle";
 import UserDropdown from "./UserDropdown";
+import { getDefaultRouteForRole } from "../utils/roles";
 
 function Navbar() {
   const { isAuthenticated, user } = useAuth();
@@ -11,13 +13,118 @@ function Navbar() {
     return null;
   }
 
-  const isOfficer = user?.role === "OFFICER";
+  const navAccess = user?.navAccess || [];
   const isAdmin = user?.role === "ADMIN";
-  const defaultRoute = isAdmin
-    ? "/admin/dashboard"
-    : isOfficer
-    ? "/officer/dashboard"
-    : "/dashboard";
+  const isOfficer = user?.role === "OFFICER";
+  const isFlatOwner = user?.role === "FLAT_OWNER";
+  const isPgOwner = user?.role === "PG_OWNER";
+  const defaultRoute = getDefaultRouteForRole(user?.role);
+  const hasAccess = (key) => isAdmin || navAccess.includes(key);
+
+  const adminLinks = useMemo(
+    () =>
+      [
+        { key: "ADMIN_DASHBOARD", label: "Dashboard", to: "/admin/dashboard" },
+        { key: "ADMIN_USERS", label: "Users", to: "/admin/users" },
+        { key: "ADMIN_FLATS", label: "Flats", to: "/admin/flats" },
+        {
+          key: "ADMIN_ASSIGNMENTS",
+          label: "Assignments",
+          to: "/admin/assign-flats",
+        },
+        { key: "ADMIN_BILLING", label: "Billing", to: "/admin/billing" },
+        {
+          key: "ADMIN_COMPLAINTS",
+          label: "Complaints",
+          to: "/admin/complaints/all",
+        },
+        {
+          key: "ADMIN_ANNOUNCEMENTS",
+          label: "Announcements",
+          to: "/admin/announcements",
+        },
+        { key: "ADMIN_EVENTS", label: "Events", to: "/admin/events" },
+        {
+          key: "ADMIN_ROLE_ACCESS",
+          label: "Role Access",
+          to: "/admin/role-access",
+        },
+      ].filter((link) => hasAccess(link.key)),
+    [hasAccess]
+  );
+
+  const ownerLinks = useMemo(() => {
+    if (isFlatOwner) {
+      return [
+        {
+          key: "OWNER_FLAT_DASHBOARD",
+          label: "Flat Dashboard",
+          to: "/owner/flat-dashboard",
+        },
+        {
+          key: "OWNER_FLAT_COMPLAINTS",
+          label: "Flat Complaints",
+          to: "/owner/flat-complaints",
+        },
+      ].filter((link) => hasAccess(link.key));
+    }
+    if (isPgOwner) {
+      return [
+        {
+          key: "OWNER_PG_DASHBOARD",
+          label: "PG Dashboard",
+          to: "/owner/pg-dashboard",
+        },
+        {
+          key: "OWNER_PG_COMPLAINTS",
+          label: "PG Complaints",
+          to: "/owner/pg-complaints",
+        },
+        {
+          key: "OWNER_PG_PROPERTIES",
+          label: "PG Properties",
+          to: "/owner/pg-properties",
+        },
+        {
+          key: "OWNER_PG_TENANTS",
+          label: "PG Tenants",
+          to: "/owner/pg-tenants",
+        },
+        {
+          key: "OWNER_PG_PAYMENTS",
+          label: "PG Payments",
+          to: "/owner/pg-payments",
+        },
+      ].filter((link) => hasAccess(link.key));
+    }
+    return [];
+  }, [hasAccess, isFlatOwner, isPgOwner]);
+
+  const pgTenantLinks = useMemo(() => {
+    if (user?.role === "PG_TENANT") {
+      return [
+        {
+          key: "PG_TENANT_PAYMENTS",
+          label: "Payment History",
+          to: "/pg-tenant/payments",
+        },
+      ].filter((link) => hasAccess(link.key));
+    }
+    return [];
+  }, [hasAccess, user?.role]);
+  const allLinks = useMemo(() => {
+    const links = [];
+    if (isAdmin && adminLinks.length > 0) {
+      links.push(...adminLinks);
+    }
+    if (ownerLinks.length > 0) {
+      links.push(...ownerLinks);
+    }
+    if (pgTenantLinks.length > 0) {
+      links.push(...pgTenantLinks);
+    }
+    return links;
+  }, [isAdmin, adminLinks, ownerLinks, pgTenantLinks]);
 
   return (
     <nav className="navbar">
@@ -28,65 +135,53 @@ function Navbar() {
           </motion.span>
         </Link>
         <div className="navbar-menu">
-          {isAdmin ? (
-            <>
-              <Link to="/admin/dashboard" className="navbar-link">
-                Admin Dashboard
-              </Link>
-              <Link to="/admin/users" className="navbar-link">
-                Users
-              </Link>
-              <Link to="/admin/flats" className="navbar-link">
-                Flats
-              </Link>
-              <Link to="/admin/assign-flats" className="navbar-link">
-                Assignments
-              </Link>
-              <Link to="/admin/billing" className="navbar-link">
-                Billing
-              </Link>
-              <Link to="/admin/complaints/all" className="navbar-link">
-                Complaints
-              </Link>
-            </>
-          ) : isOfficer ? (
-            <Link to="/officer/dashboard" className="navbar-link">
-              Officer Board
+          {adminLinks.length > 0 && (
+            <div className="navbar-dropdown">
+              <button className="navbar-link">Admin ▾</button>
+              <div className="navbar-dropdown-menu">
+                {adminLinks.map((link) => (
+                  <Link
+                    key={link.key}
+                    to={link.to}
+                    className="navbar-dropdown-item"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {ownerLinks.map((link) => (
+            <Link key={link.key} to={link.to} className="navbar-link">
+              {link.label}
             </Link>
-          ) : (
+          ))}
+
+          {pgTenantLinks.map((link) => (
+            <Link key={link.key} to={link.to} className="navbar-link">
+              {link.label}
+            </Link>
+          ))}
+
+          {hasAccess("COMMON_DASHBOARD") && (
             <Link to="/dashboard" className="navbar-link">
               Dashboard
             </Link>
           )}
-          {isAdmin && (
-            <>
-              <Link to="/admin/announcements" className="navbar-link">
-                Announcements
-              </Link>
-              <Link to="/admin/events" className="navbar-link">
-                Admin Events
-              </Link>
-              <Link to="/tenants" className="navbar-link">
-                Manage Tenants
-              </Link>
-            </>
-          )}
-          {!isAdmin && !isOfficer && (
-            <>
-              <Link to="/events" className="navbar-link">
-                Events
-              </Link>
-              <Link to="/billing" className="navbar-link">
-                My Maintenance
-              </Link>
-              <Link to="/tenants" className="navbar-link">
-                Manage Tenants
-              </Link>
-            </>
-          )}
-          {isOfficer && (
+          {hasAccess("COMMON_EVENTS") && (
             <Link to="/events" className="navbar-link">
               Events
+            </Link>
+          )}
+          {hasAccess("COMMON_BILLING") && (
+            <Link to="/billing" className="navbar-link">
+              My Maintenance
+            </Link>
+          )}
+          {hasAccess("COMMON_TENANTS") && (
+            <Link to="/tenants" className="navbar-link">
+              Manage Tenants
             </Link>
           )}
           <ThemeToggle />

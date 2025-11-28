@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../utils/api";
 import { showToast } from "../utils/toast";
+import { getDefaultRouteForRole } from "../utils/roles";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -45,12 +46,7 @@ export default function Login() {
       showToast.success(
         `Welcome back${user?.name ? `, ${user.name.split(" ")[0]}` : ""}!`
       );
-      const destination =
-        user?.role === "ADMIN"
-          ? "/admin/dashboard"
-          : user?.role === "OFFICER"
-          ? "/officer/dashboard"
-          : "/dashboard";
+      const destination = getDefaultRouteForRole(user?.role);
       navigate(destination, { replace: true });
     } catch (apiError) {
       const message =
@@ -292,7 +288,7 @@ export default function Login() {
                 </label>
                 <button
                   type="button"
-                  onClick={() => alert("Forgot password")}
+                  onClick={() => navigate("/auth/forgot-password")}
                   className="text-sm font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary-dark)] transition-opacity"
                 >
                   Forgot password?

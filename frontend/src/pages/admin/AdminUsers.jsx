@@ -5,7 +5,15 @@ import Loader from "../../components/ui/Loader";
 import { api } from "../../utils/api";
 import { showToast } from "../../utils/toast";
 
-const ROLE_OPTIONS = ["CITIZEN", "OFFICER", "ADMIN"];
+const ROLE_OPTIONS = [
+  "CITIZEN",
+  "TENANT",
+  "PG_TENANT",
+  "OFFICER",
+  "FLAT_OWNER",
+  "PG_OWNER",
+  "ADMIN",
+];
 
 function AdminUsers() {
   const [users, setUsers] = useState([]);

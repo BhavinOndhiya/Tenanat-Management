@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.git
+.gitignore
+README.md
+SERVERLESS_DEPLOYMENT.md
+*.md
+.vscode
+.idea
+
