@@ -34,6 +34,8 @@ function Dashboard() {
   const [eventsLoading, setEventsLoading] = useState(true);
   const [pgProfile, setPgProfile] = useState(null);
   const [pgProfileLoading, setPgProfileLoading] = useState(true);
+  const [recentPayments, setRecentPayments] = useState([]);
+  const [recentPaymentsLoading, setRecentPaymentsLoading] = useState(false);
 
   const fetchComplaints = async () => {
     try {
@@ -92,6 +94,22 @@ function Dashboard() {
       setUpcomingEvents(results[2].slice(0, 3));
       if (user?.role === "PG_TENANT") {
         setPgProfile(results[3]);
+
+        // Load a small recent payment history snapshot
+        try {
+          setRecentPaymentsLoading(true);
+          const data = await api.getRentPaymentHistory({
+            page: 1,
+            limit: 5,
+            filter: "last5",
+          });
+          setRecentPayments(data.items || []);
+        } catch (err) {
+          console.warn("[Dashboard] Failed to load recent payments", err);
+          setRecentPayments([]);
+        } finally {
+          setRecentPaymentsLoading(false);
+        }
       }
     } finally {
       setFlatLoading(false);
@@ -451,26 +469,81 @@ function Dashboard() {
         </Card>
 
         {user?.role === "PG_TENANT" && (
-          <ScrollAnimation delay={0.1}>
-            <div className="space-y-4">
-              <RentPaymentCard />
-              <Card padding="md">
-                <div className="flex items-center justify-between">
-                  <p className="text-[var(--color-text-secondary)]">
-                    View all your payment history and invoices
-                  </p>
-                  <Link
-                    to="/pg-tenant/payments"
-                    className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
-                  >
-                    View Payment History
-                  </Link>
-                </div>
-              </Card>
+          <Card padding="lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+                Recent Payments
+              </h2>
+              <Link
+                to="/pg-tenant/payments"
+                className="text-xs text-[var(--color-primary)] hover:underline"
+              >
+                View all
+              </Link>
             </div>
-          </ScrollAnimation>
+            {recentPaymentsLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader />
+              </div>
+            ) : recentPayments.length === 0 ? (
+              <p className="text-[var(--color-text-secondary)] text-sm">
+                No payments found yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {recentPayments.slice(0, 4).map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="flex items-center justify-between border border-[var(--color-border)] rounded-lg px-3 py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        {payment.periodLabel}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-secondary)]">
+                        {payment.status === "PAID"
+                          ? "Paid on " +
+                            (payment.paidAt
+                              ? new Date(payment.paidAt).toLocaleDateString(
+                                  "en-IN"
+                                )
+                              : "—")
+                          : `Due on ${new Date(
+                              payment.dueDate
+                            ).toLocaleDateString("en-IN")}`}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                        ₹{payment.totalAmount.toLocaleString("en-IN")}
+                      </p>
+                      <p
+                        className={`text-xs font-medium ${
+                          payment.status === "PAID"
+                            ? "text-green-600"
+                            : payment.status === "PENDING"
+                            ? "text-yellow-600"
+                            : "text-[var(--color-text-secondary)]"
+                        }`}
+                      >
+                        {payment.status}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         )}
       </div>
+
+      {user?.role === "PG_TENANT" && (
+        <ScrollAnimation delay={0.1}>
+          <div className="mb-8">
+            <RentPaymentCard />
+          </div>
+        </ScrollAnimation>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <ScrollAnimation delay={0.2}>
