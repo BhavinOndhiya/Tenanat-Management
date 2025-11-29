@@ -1,5 +1,6 @@
 import express from "express";
 import multer from "multer";
+import fs from "fs";
 import { authenticateToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import Flat from "../models/Flat.js";
@@ -8,7 +9,10 @@ import {
   generateEKycDocument,
   generatePgAgreementDocument,
 } from "../services/documentService.js";
-import { sendOnboardingDocumentsEmail } from "../services/notificationService.js";
+import {
+  sendOnboardingDocumentsEmail,
+  isEmailConfigured,
+} from "../services/notificationService.js";
 
 const router = express.Router();
 
@@ -569,14 +573,22 @@ router.post("/agreement/accept", async (req, res, next) => {
       `[Agreement] Agreement accepted by tenant ${user.email}, OTP ref: ${user.agreementOtpRef}`
     );
 
-    // Generate PDFs and send emails (async, don't wait)
-    generateAndSendDocuments(user._id.toString()).catch((error) => {
-      console.error(
-        "[Agreement] Error generating/sending documents:",
-        error.message
+    // Generate PDFs and send emails
+    // We'll do this synchronously to ensure it completes, but with better error handling
+    try {
+      await generateAndSendDocuments(user._id.toString());
+      console.log(
+        `[Agreement] ✅ Documents generated and emails sent for tenant ${user.email}`
       );
-      // Don't fail the request if document generation fails
-    });
+    } catch (docError) {
+      console.error(
+        "[Agreement] ❌ Error generating/sending documents:",
+        docError.message,
+        docError.stack
+      );
+      // Still return success to user, but log the error
+      // The onboarding is complete even if email fails
+    }
 
     res.json({
       success: true,
@@ -654,44 +666,88 @@ async function generateAndSendDocuments(tenantId) {
       profile,
     });
 
-    // Update user with document paths
-    user.ekycDocumentPath = ekycPdfPath;
-    user.agreementDocumentPath = agreementPdfPath;
-    await user.save();
+    // Verify PDFs exist before proceeding
+    if (!fs.existsSync(ekycPdfPath)) {
+      throw new Error(`eKYC PDF not found at path: ${ekycPdfPath}`);
+    }
+    if (!fs.existsSync(agreementPdfPath)) {
+      throw new Error(`Agreement PDF not found at path: ${agreementPdfPath}`);
+    }
 
     console.log(
-      `[Documents] PDFs generated: eKYC=${ekycPdfPath}, Agreement=${agreementPdfPath}`
+      `[Documents] PDFs generated and verified: eKYC=${ekycPdfPath}, Agreement=${agreementPdfPath}`
     );
+
+    // Update user with document paths
+    user.ekycDocumentPath = ekycPdfPath;
+    user.agreementDocumentUrl = ekycPdfPath; // Also store as URL for consistency
+    user.agreementDocumentPath = agreementPdfPath;
+    user.kycDocumentUrl = ekycPdfPath; // Also store as URL for consistency
+    await user.save();
+
+    // Check if email is configured
+    if (!isEmailConfigured()) {
+      console.warn(
+        "[Documents] ⚠️ Email not configured. SMTP settings missing. Documents generated but emails will not be sent."
+      );
+      console.warn(
+        "[Documents] Please configure SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables."
+      );
+      // Still save document paths even if email fails
+      return;
+    }
 
     // Send emails to both owner and tenant
     const propertyName =
       property.name || property.buildingName || "PG Property";
 
     // Send to tenant
-    await sendOnboardingDocumentsEmail({
-      recipientEmail: user.email,
-      recipientName: user.name,
-      tenantName: user.name,
-      propertyName,
-      ekycPdfPath,
-      agreementPdfPath,
-      isOwner: false,
-    });
-
-    console.log(`[Documents] Email sent to tenant: ${user.email}`);
+    console.log(
+      `[Documents] Attempting to send email to tenant: ${user.email}`
+    );
+    try {
+      await sendOnboardingDocumentsEmail({
+        recipientEmail: user.email,
+        recipientName: user.name,
+        tenantName: user.name,
+        propertyName,
+        ekycPdfPath,
+        agreementPdfPath,
+        isOwner: false,
+      });
+      console.log(`[Documents] ✅ Email sent to tenant: ${user.email}`);
+    } catch (emailError) {
+      console.error(
+        `[Documents] ❌ Failed to send email to tenant ${user.email}:`,
+        emailError.message
+      );
+      console.error("[Documents] Error stack:", emailError.stack);
+      throw emailError; // Re-throw to be caught by outer try-catch
+    }
 
     // Send to owner
-    await sendOnboardingDocumentsEmail({
-      recipientEmail: owner.email,
-      recipientName: owner.name,
-      tenantName: user.name,
-      propertyName,
-      ekycPdfPath,
-      agreementPdfPath,
-      isOwner: true,
-    });
-
-    console.log(`[Documents] Email sent to owner: ${owner.email}`);
+    console.log(
+      `[Documents] Attempting to send email to owner: ${owner.email}`
+    );
+    try {
+      await sendOnboardingDocumentsEmail({
+        recipientEmail: owner.email,
+        recipientName: owner.name,
+        tenantName: user.name,
+        propertyName,
+        ekycPdfPath,
+        agreementPdfPath,
+        isOwner: true,
+      });
+      console.log(`[Documents] ✅ Email sent to owner: ${owner.email}`);
+    } catch (emailError) {
+      console.error(
+        `[Documents] ❌ Failed to send email to owner ${owner.email}:`,
+        emailError.message
+      );
+      console.error("[Documents] Error stack:", emailError.stack);
+      throw emailError; // Re-throw to be caught by outer try-catch
+    }
 
     console.log(
       `[Documents] ✅ Successfully generated and sent documents for tenant ${user.email}`
