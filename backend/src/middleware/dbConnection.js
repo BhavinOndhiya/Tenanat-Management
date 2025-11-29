@@ -6,6 +6,11 @@ let connectionPromise = null;
 
 // Middleware to ensure database is connected before processing requests
 export const ensureDBConnection = async (req, res, next) => {
+  // Skip database connection for OPTIONS requests (CORS preflight)
+  if (req.method === "OPTIONS") {
+    return next();
+  }
+
   try {
     // If already connected, proceed immediately
     if (mongoose.connection.readyState === 1) {

@@ -31,8 +31,22 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Handle preflight OPTIONS requests explicitly
+// Handle preflight OPTIONS requests explicitly (before any other middleware)
 app.options("*", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept, Origin"
+  );
+  res.status(200).end();
+});
+
+// Also handle OPTIONS for /api routes specifically (before db connection middleware)
+app.options("/api/*", (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header(
     "Access-Control-Allow-Methods",
