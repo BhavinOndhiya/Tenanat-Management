@@ -605,20 +605,66 @@ function Profile() {
             </h2>
             <div className="space-y-4">
               {/* eKYC Status */}
-              <div className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                      eKYC Verification
-                    </h3>
-                    <p className="text-sm text-[var(--color-text-secondary)]">
-                      Identity verification status
-                    </p>
+              <div className="p-4 border border-[var(--color-border)] rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        eKYC Verification
+                      </h3>
+                      <p className="text-sm text-[var(--color-text-secondary)]">
+                        Identity verification status
+                      </p>
+                    </div>
+                    {user?.kycStatus === "verified" ? (
+                      <div className="flex items-center gap-2 text-[var(--color-success)]">
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="font-semibold">Completed</span>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          if (user?.onboardingStatus === "completed") {
+                            showToast.info("eKYC is already completed");
+                          } else {
+                            setShowCompleteOnboardingModal(true);
+                          }
+                        }}
+                      >
+                        Complete Now
+                      </Button>
+                    )}
                   </div>
-                  {user?.kycStatus === "verified" ? (
-                    <div className="flex items-center gap-2 text-[var(--color-success)]">
+                </div>
+                {user?.kycStatus === "verified" && (
+                  <div className="pt-3 border-t border-[var(--color-border)]">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        try {
+                          api.viewDocument("ekyc");
+                        } catch (error) {
+                          showToast.error("Failed to view eKYC document");
+                        }
+                      }}
+                    >
                       <svg
-                        className="w-6 h-6"
+                        className="w-4 h-4 mr-2"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -627,44 +673,82 @@ function Profile() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                         />
                       </svg>
-                      <span className="font-semibold">Completed</span>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        if (user?.onboardingStatus === "completed") {
-                          showToast.info("eKYC is already completed");
-                        } else {
-                          setShowCompleteOnboardingModal(true);
-                        }
-                      }}
-                    >
-                      Complete Now
+                      View eKYC Document
                     </Button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
               {/* Rental Agreement Status */}
-              <div className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                      Rental Agreement
-                    </h3>
-                    <p className="text-sm text-[var(--color-text-secondary)]">
-                      PG rental agreement status
-                    </p>
+              <div className="p-4 border border-[var(--color-border)] rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                        Rental Agreement
+                      </h3>
+                      <p className="text-sm text-[var(--color-text-secondary)]">
+                        PG rental agreement status
+                      </p>
+                    </div>
+                    {user?.agreementAccepted ? (
+                      <div className="flex items-center gap-2 text-[var(--color-success)]">
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="font-semibold">Completed</span>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          if (user?.onboardingStatus === "completed") {
+                            showToast.info("Agreement is already completed");
+                          } else {
+                            setShowCompleteOnboardingModal(true);
+                          }
+                        }}
+                      >
+                        Complete Now
+                      </Button>
+                    )}
                   </div>
-                  {user?.agreementAccepted ? (
-                    <div className="flex items-center gap-2 text-[var(--color-success)]">
+                </div>
+                {user?.agreementAccepted && (
+                  <div className="pt-3 border-t border-[var(--color-border)]">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        try {
+                          api.viewDocument("agreement");
+                        } catch (error) {
+                          showToast.error("Failed to view Agreement document");
+                        }
+                      }}
+                    >
                       <svg
-                        className="w-6 h-6"
+                        className="w-4 h-4 mr-2"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -673,27 +757,19 @@ function Profile() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                         />
                       </svg>
-                      <span className="font-semibold">Completed</span>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        if (user?.onboardingStatus === "completed") {
-                          showToast.info("Agreement is already completed");
-                        } else {
-                          setShowCompleteOnboardingModal(true);
-                        }
-                      }}
-                    >
-                      Complete Now
+                      View Agreement Document
                     </Button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
@@ -709,11 +785,36 @@ function Profile() {
             </h2>
             <div className="space-y-3">
               {user.kycDocumentInfo.idType && user.kycDocumentInfo.idNumber ? (
-                <div className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)] flex items-center justify-center">
+                <div className="p-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)]">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)] flex items-center justify-center">
+                        <svg
+                          className="w-6 h-6 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"
+                          />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                          {user.kycDocumentInfo.idType}
+                        </h3>
+                        <p className="text-sm text-[var(--color-text-secondary)]">
+                          {user.kycDocumentInfo.idNumber}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[var(--color-success)]">
                       <svg
-                        className="w-6 h-6 text-white"
+                        className="w-5 h-5"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -722,34 +823,41 @@ function Profile() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
-                        {user.kycDocumentInfo.idType}
-                      </h3>
-                      <p className="text-sm text-[var(--color-text-secondary)]">
-                        {user.kycDocumentInfo.idNumber}
-                      </p>
+                      <span className="text-sm font-medium">Uploaded</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-[var(--color-success)]">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span className="text-sm font-medium">Uploaded</span>
+                  <div className="pt-3 border-t border-[var(--color-border)]">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => navigate("/documents")}
+                      >
+                        <svg
+                          className="w-4 h-4 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                          />
+                        </svg>
+                        View All Documents
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
