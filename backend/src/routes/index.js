@@ -51,9 +51,15 @@ router.get("/me", authenticateToken, async (req, res, next) => {
       ? {
           idType: user.kycData.idType || null,
           idNumber: user.kycData.idNumber || null,
-          hasIdFront: !!(user.kycImages?.idFrontBase64 || user.kycData.idFrontUrl),
+          hasIdFront: !!(
+            user.kycImages?.idFrontBase64 || user.kycData.idFrontUrl
+          ),
           hasIdBack: !!(user.kycImages?.idBackBase64 || user.kycData.idBackUrl),
           hasSelfie: !!(user.kycImages?.selfieBase64 || user.kycData.selfieUrl),
+          // Include base64 images for viewing (only if they exist)
+          idFrontBase64: user.kycImages?.idFrontBase64 || null,
+          idBackBase64: user.kycImages?.idBackBase64 || null,
+          selfieBase64: user.kycImages?.selfieBase64 || null,
         }
       : null;
 

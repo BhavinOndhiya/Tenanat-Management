@@ -76,6 +76,20 @@ router.get("/my-documents", async (req, res, next) => {
       });
     }
 
+    // Reference Document (KYC Images PDF) - for tenant to view their uploaded images
+    if (user.referenceDocumentBase64 || user.referenceDocumentPath) {
+      const hasBase64 = !!user.referenceDocumentBase64;
+      const referencePath = user.referenceDocumentPath;
+      const pathExists = referencePath && fs.existsSync(referencePath);
+
+      documents.push({
+        type: "reference",
+        name: "KYC Reference Documents (Images)",
+        available: hasBase64 || pathExists,
+        generatedAt: user.documentsGeneratedAt || null,
+      });
+    }
+
     res.json({
       documents,
       user: {
@@ -138,13 +152,28 @@ router.get("/download/:type", async (req, res, next) => {
           pdfBuffer = fs.readFileSync(filePath);
         }
       }
+    } else if (type === "reference") {
+      fileName = `KYC-Reference-${user.name.replace(/\s+/g, "-")}.pdf`;
+      // Prefer base64 (persistent), fallback to file path
+      if (user.referenceDocumentBase64) {
+        pdfBuffer = Buffer.from(user.referenceDocumentBase64, "base64");
+      } else {
+        const filePath = user.referenceDocumentPath;
+        if (filePath && fs.existsSync(filePath)) {
+          pdfBuffer = fs.readFileSync(filePath);
+        }
+      }
     }
 
     if (!pdfBuffer) {
+      const docName =
+        type === "ekyc"
+          ? "eKYC"
+          : type === "agreement"
+          ? "Agreement"
+          : "Reference";
       return res.status(404).json({
-        error: `${
-          type === "ekyc" ? "eKYC" : "Agreement"
-        } document not found or not generated yet`,
+        error: `${docName} document not found or not generated yet`,
       });
     }
 

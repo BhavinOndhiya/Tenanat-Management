@@ -405,7 +405,7 @@ export const api = {
   },
 
   async viewDocument(type) {
-    // type: 'ekyc' or 'agreement'
+    // type: 'ekyc', 'agreement', or 'reference'
     const response = await fetch(`${API_BASE_URL}/documents/download/${type}`, {
       method: "GET",
       headers: {
