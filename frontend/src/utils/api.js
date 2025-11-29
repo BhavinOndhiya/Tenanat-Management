@@ -55,23 +55,14 @@ export const api = {
         const errorMessage =
           data.error || `Request failed with status ${response.status}`;
 
-        // Handle auth errors - token missing/expired/invalid/deactivated
+        // Handle auth errors - always redirect on 401/403
         if (response.status === 401 || response.status === 403) {
-          const msg = (data.error || "").toLowerCase();
-
-          const isAuthProblem =
-            msg.includes("access token required") ||
-            msg.includes("invalid or expired token") ||
-            msg.includes("account is deactivated");
-
-          if (isAuthProblem) {
-            // Clear invalid session
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            // Redirect to login if not already there
-            if (!window.location.pathname.includes("/auth/login")) {
-              window.location.href = "/auth/login";
-            }
+          // Clear invalid session
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          // Redirect to login if not already there
+          if (!window.location.pathname.includes("/auth/login")) {
+            window.location.href = "/auth/login";
           }
         }
 
