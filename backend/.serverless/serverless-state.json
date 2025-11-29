@@ -241,7 +241,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/complaint-management-api/prod/1764425796497-2025-11-29T14:16:36.497Z/complaint-management-api.zip"
+                "S3Key": "serverless/complaint-management-api/prod/1764426187544-2025-11-29T14:23:07.544Z/complaint-management-api.zip"
               },
               "Handler": "src/handler.handler",
               "Runtime": "nodejs18.x",
@@ -281,14 +281,14 @@
               "ApiLogGroup"
             ]
           },
-          "ApiLambdaVersion4fGgXdHW2GCHq8Y86oXakIU8VfVYrMSxmbHbNSaC6U": {
+          "ApiLambdaVersion3bzrfSQFZpTcvdMJDpfO3Fs9v1I4fphUH8MHlFvpw": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "ApiLambdaFunction"
               },
-              "CodeSha256": "gKv7n3eZcEkmpq2GDNzFsn/1KrmanXXnenmGfuT17Qo="
+              "CodeSha256": "KUPFR0VBfp7NkewQNfiVya/cgpD6piWYWyORYBAZyEs="
             }
           },
           "HttpApi": {
@@ -441,7 +441,7 @@
           "ApiLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "ApiLambdaVersion4fGgXdHW2GCHq8Y86oXakIU8VfVYrMSxmbHbNSaC6U"
+              "Ref": "ApiLambdaVersion3bzrfSQFZpTcvdMJDpfO3Fs9v1I4fphUH8MHlFvpw"
             },
             "Export": {
               "Name": "sls-complaint-management-api-prod-ApiLambdaFunctionQualifiedArn"
@@ -605,7 +605,7 @@
         "timeout": 30,
         "runtime": "nodejs18.x",
         "vpc": {},
-        "versionLogicalId": "ApiLambdaVersion4fGgXdHW2GCHq8Y86oXakIU8VfVYrMSxmbHbNSaC6U"
+        "versionLogicalId": "ApiLambdaVersion3bzrfSQFZpTcvdMJDpfO3Fs9v1I4fphUH8MHlFvpw"
       }
     },
     "configValidationMode": "warn",
@@ -633,7 +633,7 @@
         ],
         "artifactsS3KeyDirname": "serverless/complaint-management-api/prod/code-artifacts",
         "artifact": "C:\\Users\\BhavinOndhiya\\Desktop\\first-project\\backend\\.serverless\\complaint-management-api.zip",
-        "artifactDirectoryName": "serverless/complaint-management-api/prod/1764425796497-2025-11-29T14:16:36.497Z"
+        "artifactDirectoryName": "serverless/complaint-management-api/prod/1764426187544-2025-11-29T14:23:07.544Z"
       },
       "plugins": {
         "$ref": "$[\"service\"][\"plugins\"]"
@@ -648,7 +648,7 @@
   },
   "package": {
     "individually": false,
-    "artifactDirectoryName": "serverless/complaint-management-api/prod/1764425796497-2025-11-29T14:16:36.497Z",
+    "artifactDirectoryName": "serverless/complaint-management-api/prod/1764426187544-2025-11-29T14:23:07.544Z",
     "artifact": "complaint-management-api.zip"
   }
 }

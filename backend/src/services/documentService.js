@@ -310,6 +310,7 @@ export async function generatePgAgreementDocument({
   // Get document structure
   const structure = agreementDocumentStructure;
   const colors = structure.colors;
+  const primaryColor = colors.primary;
   const formatters = structure.formatters;
 
   // Create documents directory if it doesn't exist

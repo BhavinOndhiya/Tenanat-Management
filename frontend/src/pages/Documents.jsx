@@ -5,6 +5,7 @@ import { showToast } from "../utils/toast";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Loader from "../components/ui/Loader";
+import Modal from "../components/ui/Modal";
 
 function Documents() {
   const { user } = useAuth();
@@ -13,6 +14,7 @@ function Documents() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
 
   useEffect(() => {
     fetchDocuments();
@@ -44,16 +46,9 @@ function Documents() {
   };
 
   const handleGenerateDocuments = async () => {
-    if (
-      !window.confirm(
-        "Generate and send documents? This will create your eKYC and PG Agreement PDFs and email them to you and your PG owner."
-      )
-    ) {
-      return;
-    }
-
     try {
       setGenerating(true);
+      setShowGenerateModal(false);
       const result = await api.generateDocuments();
       showToast.success(result.message || "Documents generated successfully!");
 
@@ -119,7 +114,7 @@ function Documents() {
                   variant="primary"
                   size="lg"
                   loading={generating}
-                  onClick={handleGenerateDocuments}
+                  onClick={() => setShowGenerateModal(true)}
                 >
                   {generating
                     ? "Generating Documents..."
@@ -174,6 +169,41 @@ function Documents() {
           ))}
         </div>
       )}
+
+      {/* Generate Documents Confirmation Modal */}
+      <Modal
+        isOpen={showGenerateModal}
+        onClose={() => !generating && setShowGenerateModal(false)}
+        title="Generate Documents"
+        confirmText="Generate & Send"
+        cancelText="Cancel"
+        onConfirm={handleGenerateDocuments}
+        onCancel={() => setShowGenerateModal(false)}
+        loading={generating}
+        variant="primary"
+      >
+        <div className="space-y-3">
+          <p className="text-[var(--color-text-primary)]">
+            This will generate your eKYC and PG Agreement PDFs using your
+            existing onboarding data.
+          </p>
+          <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-4 space-y-2">
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+              What will happen:
+            </p>
+            <ul className="text-sm text-[var(--color-text-secondary)] space-y-1 list-disc list-inside">
+              <li>Generate eKYC Verification Document PDF</li>
+              <li>Generate PG Rental Agreement PDF</li>
+              <li>Email both documents to you</li>
+              <li>Email both documents to your PG owner</li>
+            </ul>
+          </div>
+          <p className="text-xs text-[var(--color-text-secondary)]">
+            Documents will be stored securely and available for download after
+            generation.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }
