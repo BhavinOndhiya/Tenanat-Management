@@ -575,8 +575,15 @@ router.post("/agreement/accept", async (req, res, next) => {
 
     // Generate PDFs and send emails
     // We'll do this synchronously to ensure it completes, but with better error handling
+    let emailStatus = {
+      sent: false,
+      error: null,
+      configured: false,
+    };
+
     try {
-      await generateAndSendDocuments(user._id.toString());
+      const result = await generateAndSendDocuments(user._id.toString());
+      emailStatus = result || { sent: true, configured: true };
       console.log(
         `[Agreement] ✅ Documents generated and emails sent for tenant ${user.email}`
       );
@@ -586,7 +593,12 @@ router.post("/agreement/accept", async (req, res, next) => {
         docError.message,
         docError.stack
       );
-      // Still return success to user, but log the error
+      emailStatus = {
+        sent: false,
+        error: docError.message,
+        configured: isEmailConfigured(),
+      };
+      // Still return success to user, but include email status
       // The onboarding is complete even if email fails
     }
 
@@ -595,6 +607,16 @@ router.post("/agreement/accept", async (req, res, next) => {
       message:
         "Agreement accepted successfully. Onboarding complete! Documents will be sent via email.",
       onboardingStatus: user.onboardingStatus,
+      emailStatus: {
+        sent: emailStatus.sent,
+        configured: emailStatus.configured,
+        error: emailStatus.error,
+        message: emailStatus.configured
+          ? emailStatus.sent
+            ? "Documents sent successfully via email"
+            : `Email failed: ${emailStatus.error || "Unknown error"}`
+          : "Email not configured. Please check SMTP settings in environment variables.",
+      },
     });
   } catch (error) {
     next(error);
@@ -686,7 +708,8 @@ async function generateAndSendDocuments(tenantId) {
     await user.save();
 
     // Check if email is configured
-    if (!isEmailConfigured()) {
+    const emailConfigured = isEmailConfigured();
+    if (!emailConfigured) {
       console.warn(
         "[Documents] ⚠️ Email not configured. SMTP settings missing. Documents generated but emails will not be sent."
       );
@@ -694,12 +717,20 @@ async function generateAndSendDocuments(tenantId) {
         "[Documents] Please configure SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables."
       );
       // Still save document paths even if email fails
-      return;
+      return {
+        sent: false,
+        configured: false,
+        error: "Email not configured. SMTP settings missing.",
+      };
     }
 
     // Send emails to both owner and tenant
     const propertyName =
       property.name || property.buildingName || "PG Property";
+
+    let tenantEmailSent = false;
+    let ownerEmailSent = false;
+    let emailError = null;
 
     // Send to tenant
     console.log(
@@ -716,13 +747,14 @@ async function generateAndSendDocuments(tenantId) {
         isOwner: false,
       });
       console.log(`[Documents] ✅ Email sent to tenant: ${user.email}`);
+      tenantEmailSent = true;
     } catch (emailError) {
       console.error(
         `[Documents] ❌ Failed to send email to tenant ${user.email}:`,
         emailError.message
       );
       console.error("[Documents] Error stack:", emailError.stack);
-      throw emailError; // Re-throw to be caught by outer try-catch
+      emailError = emailError.message;
     }
 
     // Send to owner
@@ -740,18 +772,39 @@ async function generateAndSendDocuments(tenantId) {
         isOwner: true,
       });
       console.log(`[Documents] ✅ Email sent to owner: ${owner.email}`);
-    } catch (emailError) {
+      ownerEmailSent = true;
+    } catch (ownerEmailError) {
       console.error(
         `[Documents] ❌ Failed to send email to owner ${owner.email}:`,
-        emailError.message
+        ownerEmailError.message
       );
-      console.error("[Documents] Error stack:", emailError.stack);
-      throw emailError; // Re-throw to be caught by outer try-catch
+      console.error("[Documents] Error stack:", ownerEmailError.stack);
+      if (!emailError) {
+        emailError = ownerEmailError.message;
+      } else {
+        emailError += `; Owner email failed: ${ownerEmailError.message}`;
+      }
     }
 
-    console.log(
-      `[Documents] ✅ Successfully generated and sent documents for tenant ${user.email}`
-    );
+    if (tenantEmailSent && ownerEmailSent) {
+      console.log(
+        `[Documents] ✅ Successfully generated and sent documents for tenant ${user.email}`
+      );
+      return {
+        sent: true,
+        configured: true,
+        tenantEmailSent: true,
+        ownerEmailSent: true,
+      };
+    } else {
+      return {
+        sent: false,
+        configured: true,
+        error: emailError || "Unknown error sending emails",
+        tenantEmailSent,
+        ownerEmailSent,
+      };
+    }
   } catch (error) {
     console.error("[Documents] Error in generateAndSendDocuments:", error);
     throw error;
