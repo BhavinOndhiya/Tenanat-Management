@@ -1301,6 +1301,8 @@ export const sendOnboardingDocumentsEmail = async ({
   agreementPdfPath,
   ekycPdfBuffer,
   agreementPdfBuffer,
+  referencePdfPath,
+  referencePdfBuffer,
   isOwner = false,
 }) => {
   if (!transporter) {
@@ -1404,6 +1406,41 @@ export const sendOnboardingDocumentsEmail = async ({
       console.warn(
         `[EMAIL] ⚠️ Agreement PDF not available (no buffer or path: ${agreementPdfPath})`
       );
+    }
+
+    // Add Reference Document (KYC Images) - ONLY for owner
+    if (isOwner) {
+      if (referencePdfBuffer) {
+        console.log(
+          `[EMAIL] Using Reference PDF buffer (${referencePdfBuffer.length} bytes)`
+        );
+        attachments.push({
+          filename: `KYC-Reference-${tenantName.replace(/\s+/g, "-")}.pdf`,
+          content: referencePdfBuffer,
+          contentType: "application/pdf",
+        });
+        console.log(
+          `[EMAIL] ✅ Reference PDF added to attachments (owner only)`
+        );
+      } else if (referencePdfPath && fs.existsSync(referencePdfPath)) {
+        console.log(`[EMAIL] Reading Reference PDF from: ${referencePdfPath}`);
+        try {
+          const fileContent = fs.readFileSync(referencePdfPath);
+          attachments.push({
+            filename: `KYC-Reference-${tenantName.replace(/\s+/g, "-")}.pdf`,
+            content: fileContent,
+            contentType: "application/pdf",
+          });
+          console.log(
+            `[EMAIL] ✅ Reference PDF added to attachments (${fileContent.length} bytes)`
+          );
+        } catch (readError) {
+          console.error(
+            `[EMAIL] ❌ Failed to read Reference PDF: ${readError.message}`
+          );
+          // Don't throw - reference doc is optional
+        }
+      }
     }
 
     if (attachments.length === 0) {

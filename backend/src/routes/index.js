@@ -26,7 +26,7 @@ router.get("/me", authenticateToken, async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id)
       .select(
-        "name email role isActive avatarUrl assignedProperty ownerProperties onboardingStatus kycStatus agreementAccepted"
+        "name email role isActive avatarUrl assignedProperty ownerProperties onboardingStatus kycStatus agreementAccepted kycData kycImages"
       )
       .populate("assignedProperty", "buildingName block flatNumber floor type");
 
@@ -46,6 +46,17 @@ router.get("/me", authenticateToken, async (req, res, next) => {
         }
       : null;
 
+    // Extract KYC document info
+    const kycDocumentInfo = user.kycData
+      ? {
+          idType: user.kycData.idType || null,
+          idNumber: user.kycData.idNumber || null,
+          hasIdFront: !!(user.kycImages?.idFrontBase64 || user.kycData.idFrontUrl),
+          hasIdBack: !!(user.kycImages?.idBackBase64 || user.kycData.idBackUrl),
+          hasSelfie: !!(user.kycImages?.selfieBase64 || user.kycData.selfieUrl),
+        }
+      : null;
+
     res.json({
       id: user._id.toString(),
       name: user.name,
@@ -56,6 +67,7 @@ router.get("/me", authenticateToken, async (req, res, next) => {
       onboardingStatus: user.onboardingStatus || null,
       kycStatus: user.kycStatus || null,
       agreementAccepted: user.agreementAccepted || false,
+      kycDocumentInfo,
       navAccess,
       assignedProperty,
     });

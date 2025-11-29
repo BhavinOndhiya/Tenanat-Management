@@ -8,6 +8,7 @@ import Flat from "../models/Flat.js";
 import {
   generateEKycDocument,
   generatePgAgreementDocument,
+  generateReferenceDocument,
 } from "../services/documentService.js";
 import {
   sendOnboardingDocumentsEmail,
@@ -238,6 +239,20 @@ router.get("/tenant-documents", async (req, res, next) => {
         });
       }
 
+      // Reference Document (KYC Images) - for owner only
+      if (tenant.referenceDocumentBase64 || tenant.referenceDocumentPath) {
+        const hasBase64 = !!tenant.referenceDocumentBase64;
+        const referencePath = tenant.referenceDocumentPath;
+        const pathExists = referencePath && fs.existsSync(referencePath);
+
+        documents.push({
+          type: "reference",
+          name: "KYC Reference Documents (Images)",
+          available: hasBase64 || pathExists,
+          generatedAt: tenant.documentsGeneratedAt || null,
+        });
+      }
+
       return res.json({
         tenant: {
           id: tenant._id.toString(),
@@ -265,7 +280,7 @@ router.get("/tenant-documents", async (req, res, next) => {
     })
       .populate(
         "userId",
-        "name email phone onboardingStatus kycDocumentUrl agreementDocumentUrl ekycDocumentPath agreementDocumentPath ekycDocumentBase64 agreementDocumentBase64 documentsGenerated documentsGeneratedAt kycVerifiedAt agreementAcceptedAt"
+        "name email phone onboardingStatus kycDocumentUrl agreementDocumentUrl ekycDocumentPath agreementDocumentPath ekycDocumentBase64 agreementDocumentBase64 referenceDocumentPath referenceDocumentBase64 documentsGenerated documentsGeneratedAt kycVerifiedAt agreementAcceptedAt"
       )
       .lean();
 
@@ -280,7 +295,9 @@ router.get("/tenant-documents", async (req, res, next) => {
           tenant.kycDocumentUrl ||
           tenant.agreementDocumentBase64 ||
           tenant.agreementDocumentPath ||
-          tenant.agreementDocumentUrl;
+          tenant.agreementDocumentUrl ||
+          tenant.referenceDocumentBase64 ||
+          tenant.referenceDocumentPath;
 
         return {
           id: tenant._id.toString(),
@@ -371,6 +388,17 @@ router.get("/tenant/:tenantId/download/:type", async (req, res, next) => {
       } else {
         const filePath =
           tenant.agreementDocumentPath || tenant.agreementDocumentUrl;
+        if (filePath && fs.existsSync(filePath)) {
+          pdfBuffer = fs.readFileSync(filePath);
+        }
+      }
+    } else if (type === "reference") {
+      fileName = `KYC-Reference-${tenant.name.replace(/\s+/g, "-")}.pdf`;
+      // Prefer base64 (persistent), fallback to file path
+      if (tenant.referenceDocumentBase64) {
+        pdfBuffer = Buffer.from(tenant.referenceDocumentBase64, "base64");
+      } else {
+        const filePath = tenant.referenceDocumentPath;
         if (filePath && fs.existsSync(filePath)) {
           pdfBuffer = fs.readFileSync(filePath);
         }
@@ -490,6 +518,28 @@ router.post("/generate", async (req, res, next) => {
     });
     console.log(`[Documents] Agreement PDF generated at: ${agreementPdfPath}`);
 
+    // Generate Reference Document (KYC Images PDF) - for owner only
+    let referencePdfPath = null;
+    let referencePdfBuffer = null;
+    if (
+      user.kycImages &&
+      (user.kycImages.idFrontBase64 ||
+        user.kycImages.idBackBase64 ||
+        user.kycImages.selfieBase64)
+    ) {
+      console.log(
+        "[Documents] Starting Reference document generation (KYC images)..."
+      );
+      referencePdfPath = await generateReferenceDocument({ user });
+      console.log(
+        `[Documents] Reference PDF generated at: ${referencePdfPath}`
+      );
+
+      if (fs.existsSync(referencePdfPath)) {
+        referencePdfBuffer = fs.readFileSync(referencePdfPath);
+      }
+    }
+
     // Verify PDFs exist before proceeding
     if (!fs.existsSync(ekycPdfPath)) {
       console.error(
@@ -503,6 +553,13 @@ router.post("/generate", async (req, res, next) => {
       );
       throw new Error(`Agreement PDF not found at path: ${agreementPdfPath}`);
     }
+    if (referencePdfPath && !fs.existsSync(referencePdfPath)) {
+      console.warn(
+        `[Documents] ⚠️ Reference PDF not found at path: ${referencePdfPath}`
+      );
+      referencePdfPath = null;
+      referencePdfBuffer = null;
+    }
 
     // Read PDFs into memory and store as base64
     console.log("[Documents] Reading PDFs into memory for storage...");
@@ -511,12 +568,21 @@ router.post("/generate", async (req, res, next) => {
 
     const ekycBase64 = ekycPdfBuffer.toString("base64");
     const agreementBase64 = agreementPdfBuffer.toString("base64");
+    const referenceBase64 = referencePdfBuffer
+      ? referencePdfBuffer.toString("base64")
+      : null;
 
     // Update user with document paths AND base64 content
     user.ekycDocumentPath = ekycPdfPath;
     user.agreementDocumentPath = agreementPdfPath;
     user.ekycDocumentBase64 = ekycBase64;
     user.agreementDocumentBase64 = agreementBase64;
+    if (referencePdfPath) {
+      user.referenceDocumentPath = referencePdfPath;
+    }
+    if (referenceBase64) {
+      user.referenceDocumentBase64 = referenceBase64;
+    }
     user.documentsGenerated = true;
     user.documentsGeneratedAt = new Date();
     await user.save();
@@ -556,6 +622,8 @@ router.post("/generate", async (req, res, next) => {
           agreementPdfPath,
           ekycPdfBuffer,
           agreementPdfBuffer,
+          referencePdfPath,
+          referencePdfBuffer,
           isOwner: false,
         });
         console.log(`[Documents] ✅ Email sent to tenant: ${user.email}`);
@@ -582,6 +650,8 @@ router.post("/generate", async (req, res, next) => {
           agreementPdfPath,
           ekycPdfBuffer,
           agreementPdfBuffer,
+          referencePdfPath,
+          referencePdfBuffer,
           isOwner: true,
         });
         console.log(`[Documents] ✅ Email sent to owner: ${owner.email}`);

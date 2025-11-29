@@ -8,6 +8,7 @@ import PgTenantProfile from "../models/PgTenantProfile.js";
 import {
   generateEKycDocument,
   generatePgAgreementDocument,
+  generateReferenceDocument,
 } from "../services/documentService.js";
 import {
   sendOnboardingDocumentsEmail,
@@ -215,8 +216,32 @@ router.post(
       if (occupation)
         user.personalDetails = { ...user.personalDetails, occupation };
 
+      // Store uploaded images as base64 (for reference document generation)
+      const kycImages = {};
+      if (idFrontFile && idFrontFile.buffer) {
+        kycImages.idFrontBase64 = idFrontFile.buffer.toString("base64");
+        user.kycData = user.kycData || {};
+        user.kycData.idFrontUrl = `data:${idFrontFile.mimetype};base64,${kycImages.idFrontBase64}`;
+      }
+      if (idBackFile && idBackFile.buffer) {
+        kycImages.idBackBase64 = idBackFile.buffer.toString("base64");
+        user.kycData = user.kycData || {};
+        user.kycData.idBackUrl = `data:${idBackFile.mimetype};base64,${kycImages.idBackBase64}`;
+      }
+      if (selfieFile && selfieFile.buffer) {
+        kycImages.selfieBase64 = selfieFile.buffer.toString("base64");
+        user.kycData = user.kycData || {};
+        user.kycData.selfieUrl = `data:${selfieFile.mimetype};base64,${kycImages.selfieBase64}`;
+      }
+
+      // Store KYC images
+      if (Object.keys(kycImages).length > 0) {
+        user.kycImages = kycImages;
+      }
+
       // Store KYC data for document generation
       user.kycData = {
+        ...user.kycData,
         fullName: fullName.trim(),
         dateOfBirth: new Date(dateOfBirth),
         gender,
@@ -692,6 +717,28 @@ async function generateAndSendDocuments(tenantId) {
     });
     console.log(`[Documents] Agreement PDF generated at: ${agreementPdfPath}`);
 
+    // Generate Reference Document (KYC Images PDF) - for owner only
+    let referencePdfPath = null;
+    let referencePdfBuffer = null;
+    if (
+      user.kycImages &&
+      (user.kycImages.idFrontBase64 ||
+        user.kycImages.idBackBase64 ||
+        user.kycImages.selfieBase64)
+    ) {
+      console.log(
+        "[Documents] Starting Reference document generation (KYC images)..."
+      );
+      referencePdfPath = await generateReferenceDocument({ user });
+      console.log(
+        `[Documents] Reference PDF generated at: ${referencePdfPath}`
+      );
+
+      if (fs.existsSync(referencePdfPath)) {
+        referencePdfBuffer = fs.readFileSync(referencePdfPath);
+      }
+    }
+
     // Verify PDFs exist before proceeding
     if (!fs.existsSync(ekycPdfPath)) {
       console.error(
@@ -705,6 +752,13 @@ async function generateAndSendDocuments(tenantId) {
       );
       throw new Error(`Agreement PDF not found at path: ${agreementPdfPath}`);
     }
+    if (referencePdfPath && !fs.existsSync(referencePdfPath)) {
+      console.warn(
+        `[Documents] ⚠️ Reference PDF not found at path: ${referencePdfPath}`
+      );
+      referencePdfPath = null;
+      referencePdfBuffer = null;
+    }
 
     console.log(
       `[Documents] PDFs generated and verified: eKYC=${ekycPdfPath}, Agreement=${agreementPdfPath}`
@@ -717,12 +771,21 @@ async function generateAndSendDocuments(tenantId) {
 
     const ekycBase64 = ekycPdfBuffer.toString("base64");
     const agreementBase64 = agreementPdfBuffer.toString("base64");
+    const referenceBase64 = referencePdfBuffer
+      ? referencePdfBuffer.toString("base64")
+      : null;
 
     // Update user with document paths AND base64 content
     user.ekycDocumentPath = ekycPdfPath; // Keep path for reference
     user.agreementDocumentPath = agreementPdfPath; // Keep path for reference
     user.ekycDocumentBase64 = ekycBase64; // Store base64 for persistence
     user.agreementDocumentBase64 = agreementBase64; // Store base64 for persistence
+    if (referencePdfPath) {
+      user.referenceDocumentPath = referencePdfPath;
+    }
+    if (referenceBase64) {
+      user.referenceDocumentBase64 = referenceBase64;
+    }
     user.documentsGenerated = true;
     user.documentsGeneratedAt = new Date();
     await user.save();

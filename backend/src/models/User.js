@@ -163,8 +163,25 @@ const userSchema = new mongoose.Schema(
         companyCollegeName: String,
         idType: String,
         idNumber: String,
+        idFrontUrl: String, // URL to uploaded ID front
+        idBackUrl: String,  // URL to uploaded ID back
+        selfieUrl: String,  // URL to uploaded selfie
       },
       default: null,
+    },
+    // Store uploaded images as base64 for reference document
+    kycImages: {
+      idFrontBase64: String,
+      idBackBase64: String,
+      selfieBase64: String,
+    },
+    // Reference document PDF (images PDF for owner)
+    referenceDocumentPath: {
+      type: String,
+      trim: true,
+    },
+    referenceDocumentBase64: {
+      type: String,
     },
     // Document file paths
     ekycDocumentPath: {

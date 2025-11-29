@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../utils/api";
 import { showToast } from "../utils/toast";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
 import { ScrollAnimation } from "../components/ScrollAnimation";
 import Loader from "../components/ui/Loader";
 
 function Profile() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +21,8 @@ function Profile() {
   const [activeTab, setActiveTab] = useState("profile");
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [avatarFile, setAvatarFile] = useState(null);
+  const [showCompleteOnboardingModal, setShowCompleteOnboardingModal] =
+    useState(false);
   const [profileData, setProfileData] = useState({
     name: user?.name || "",
     phone: "",
@@ -119,7 +123,11 @@ function Profile() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    // Refresh user data to get latest onboarding status
+    if (refreshUser) {
+      refreshUser();
+    }
+  }, [fetchData, refreshUser]);
 
   // Refresh stats when component is focused (user navigates back)
   useEffect(() => {
@@ -582,8 +590,316 @@ function Profile() {
         </ScrollAnimation>
       </div>
 
+      {/* Onboarding Status Section - For PG_TENANT */}
+      {user?.role === "PG_TENANT" && (
+        <ScrollAnimation delay={0.4}>
+          <Card padding="lg">
+            <h2 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">
+              Onboarding Status
+            </h2>
+            <div className="space-y-4">
+              {/* eKYC Status */}
+              <div className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                      eKYC Verification
+                    </h3>
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                      Identity verification status
+                    </p>
+                  </div>
+                  {user?.kycStatus === "verified" ? (
+                    <div className="flex items-center gap-2 text-[var(--color-success)]">
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span className="font-semibold">Completed</span>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        if (user?.onboardingStatus === "completed") {
+                          showToast.info("eKYC is already completed");
+                        } else {
+                          setShowCompleteOnboardingModal(true);
+                        }
+                      }}
+                    >
+                      Complete Now
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Rental Agreement Status */}
+              <div className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                      Rental Agreement
+                    </h3>
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                      PG rental agreement status
+                    </p>
+                  </div>
+                  {user?.agreementAccepted ? (
+                    <div className="flex items-center gap-2 text-[var(--color-success)]">
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span className="font-semibold">Completed</span>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        if (user?.onboardingStatus === "completed") {
+                          showToast.info("Agreement is already completed");
+                        } else {
+                          setShowCompleteOnboardingModal(true);
+                        }
+                      }}
+                    >
+                      Complete Now
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        </ScrollAnimation>
+      )}
+
+      {/* Uploaded Documents Section - For PG_TENANT */}
+      {user?.role === "PG_TENANT" && user?.kycDocumentInfo && (
+        <ScrollAnimation delay={0.45}>
+          <Card padding="lg">
+            <h2 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">
+              Uploaded Documents
+            </h2>
+            <div className="space-y-3">
+              {user.kycDocumentInfo.idType && user.kycDocumentInfo.idNumber ? (
+                <div className="flex items-center justify-between p-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)] flex items-center justify-center">
+                      <svg
+                        className="w-6 h-6 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-[var(--color-text-primary)]">
+                        {user.kycDocumentInfo.idType}
+                      </h3>
+                      <p className="text-sm text-[var(--color-text-secondary)]">
+                        {user.kycDocumentInfo.idNumber}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-[var(--color-success)]">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium">Uploaded</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)]">
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    No documents uploaded yet. Complete onboarding to upload
+                    your ID documents.
+                  </p>
+                </div>
+              )}
+
+              {/* Document Upload Status */}
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                <div className="p-3 border border-[var(--color-border)] rounded-lg text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    {user.kycDocumentInfo.hasIdFront ? (
+                      <svg
+                        className="w-5 h-5 text-[var(--color-success)]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-5 h-5 text-[var(--color-text-secondary)]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    ID Front
+                  </p>
+                </div>
+                <div className="p-3 border border-[var(--color-border)] rounded-lg text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    {user.kycDocumentInfo.hasIdBack ? (
+                      <svg
+                        className="w-5 h-5 text-[var(--color-success)]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-5 h-5 text-[var(--color-text-secondary)]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    ID Back
+                  </p>
+                </div>
+                <div className="p-3 border border-[var(--color-border)] rounded-lg text-center">
+                  <div className="flex items-center justify-center mb-2">
+                    {user.kycDocumentInfo.hasSelfie ? (
+                      <svg
+                        className="w-5 h-5 text-[var(--color-success)]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        className="w-5 h-5 text-[var(--color-text-secondary)]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--color-text-secondary)]">
+                    Selfie
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </ScrollAnimation>
+      )}
+
+      {/* Complete Onboarding Modal */}
+      <Modal
+        isOpen={showCompleteOnboardingModal}
+        onClose={() => setShowCompleteOnboardingModal(false)}
+        title="Complete Onboarding"
+        confirmText="Go to Onboarding"
+        cancelText="Cancel"
+        onConfirm={() => {
+          setShowCompleteOnboardingModal(false);
+          navigate("/tenant/onboarding");
+        }}
+        onCancel={() => setShowCompleteOnboardingModal(false)}
+        variant="primary"
+      >
+        <p className="text-[var(--color-text-secondary)] mb-4">
+          You need to complete the onboarding process to access all features.
+          This includes:
+        </p>
+        <ul className="list-disc list-inside text-[var(--color-text-secondary)] space-y-2 mb-4">
+          <li>eKYC Verification (upload ID documents and selfie)</li>
+          <li>Signing the PG Rental Agreement</li>
+        </ul>
+        <p className="text-[var(--color-text-primary)] font-medium">
+          Would you like to proceed to the onboarding page?
+        </p>
+      </Modal>
+
       {/* Marital Status & Family Details */}
-      <ScrollAnimation delay={0.4}>
+      <ScrollAnimation delay={0.5}>
         <Card padding="lg">
           <h2 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">
             Family & Personal Details

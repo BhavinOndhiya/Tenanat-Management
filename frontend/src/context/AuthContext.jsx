@@ -54,11 +54,32 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
   };
 
+  const refreshUser = async () => {
+    try {
+      const userData = await api.getMe();
+      setUser({
+        ...userData,
+        role: userData.role || "CITIZEN",
+      });
+      localStorage.setItem("user", JSON.stringify(userData));
+    } catch (error) {
+      console.error("Failed to refresh user data:", error);
+    }
+  };
+
   const isAuthenticated = !!token && !!user;
 
   return (
     <AuthContext.Provider
-      value={{ user, token, login, logout, isAuthenticated, loading }}
+      value={{
+        user,
+        token,
+        login,
+        logout,
+        isAuthenticated,
+        loading,
+        refreshUser,
+      }}
     >
       {children}
     </AuthContext.Provider>
