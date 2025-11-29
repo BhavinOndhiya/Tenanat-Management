@@ -123,11 +123,17 @@ function Profile() {
 
   useEffect(() => {
     fetchData();
-    // Refresh user data to get latest onboarding status
-    if (refreshUser) {
+  }, [fetchData]);
+
+  // Refresh user data separately to avoid infinite loops
+  // Only refresh if user data might be stale (e.g., after onboarding)
+  useEffect(() => {
+    // Only refresh if we're on the profile page and user is PG_TENANT
+    // This prevents unnecessary API calls
+    if (user?.role === "PG_TENANT" && refreshUser) {
       refreshUser();
     }
-  }, [fetchData, refreshUser]);
+  }, []); // Only run once on mount
 
   // Refresh stats when component is focused (user navigates back)
   useEffect(() => {
@@ -138,7 +144,7 @@ function Profile() {
     };
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
-  }, [isEditing, fetchData]);
+  }, [isEditing, fetchData]); // fetchData is memoized with useCallback, so this is safe
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];

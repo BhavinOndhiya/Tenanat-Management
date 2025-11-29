@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { api } from "../utils/api";
 
 const AuthContext = createContext(null);
@@ -54,7 +60,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
   };
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const userData = await api.getMe();
       setUser({
@@ -65,7 +71,7 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Failed to refresh user data:", error);
     }
-  };
+  }, []); // Memoize to prevent recreation on every render
 
   const isAuthenticated = !!token && !!user;
 
