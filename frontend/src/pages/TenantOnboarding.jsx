@@ -152,10 +152,50 @@ export default function TenantOnboarding() {
         const userData = await api.getMe();
         storeSession(userData, localStorage.getItem("token"));
 
-        // Redirect to dashboard
+        // Generate documents and send emails
+        try {
+          console.log("[TenantOnboarding] Calling document generation API...");
+          const docResult = await api.generateDocuments();
+          console.log(
+            "[TenantOnboarding] Document generation result:",
+            docResult
+          );
+
+          if (docResult.emailStatus) {
+            if (docResult.emailStatus.sent) {
+              showToast.success(
+                "Documents generated and sent via email to you and your PG owner!"
+              );
+            } else if (docResult.emailStatus.configured) {
+              showToast.warning(
+                `Documents generated but email sending had issues: ${
+                  docResult.emailStatus.error || "Unknown error"
+                }`
+              );
+            } else {
+              showToast.info(
+                "Documents generated but email is not configured. You can download them from the Documents page."
+              );
+            }
+          } else {
+            showToast.success("Documents generated successfully!");
+          }
+        } catch (docError) {
+          console.error(
+            "[TenantOnboarding] Document generation error:",
+            docError
+          );
+          // Don't fail the onboarding if document generation fails
+          // The backend already tries to generate documents, so this is a backup
+          showToast.warning(
+            "Onboarding complete, but document generation encountered an issue. You can generate documents later from the Documents page."
+          );
+        }
+
+        // Redirect to profile page
         setTimeout(() => {
-          navigate("/dashboard", { replace: true });
-        }, 1500);
+          navigate("/profile", { replace: true });
+        }, 2000);
       }
     } catch (error) {
       console.error("Agreement acceptance error:", error);

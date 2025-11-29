@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../utils/api";
 import { showToast } from "../utils/toast";
@@ -9,6 +10,7 @@ import Modal from "../components/ui/Modal";
 
 function Documents() {
   const { user } = useAuth();
+  const location = useLocation();
   const [documents, setDocuments] = useState([]);
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +21,28 @@ function Documents() {
   useEffect(() => {
     fetchDocuments();
   }, []);
+
+  // Refresh documents when navigating to this page (e.g., after onboarding completion)
+  useEffect(() => {
+    if (
+      location.pathname === "/documents" ||
+      location.pathname === "/profile"
+    ) {
+      // Refresh documents when page is visited
+      fetchDocuments();
+    }
+  }, [location.pathname]);
+
+  // Refresh documents when user changes (e.g., after onboarding completion)
+  useEffect(() => {
+    if (user?.onboardingStatus === "completed") {
+      // Small delay to ensure backend has saved documents
+      const timer = setTimeout(() => {
+        fetchDocuments();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user?.onboardingStatus]);
 
   const fetchDocuments = async () => {
     try {
@@ -140,6 +164,79 @@ function Documents() {
             )}
           </div>
         </Card>
+      ) : documents.some((doc) => !doc.available) &&
+        userInfo?.onboardingStatus === "completed" ? (
+        <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {documents.map((doc) => (
+              <Card key={doc.type} padding="lg">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-[var(--color-text-primary)]">
+                      {doc.name}
+                    </h3>
+                    {doc.generatedAt && (
+                      <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                        Generated:{" "}
+                        {new Date(doc.generatedAt).toLocaleDateString("en-IN", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </p>
+                    )}
+                  </div>
+                  <div
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      doc.available
+                        ? "bg-[var(--color-success-light)] text-[var(--color-success)]"
+                        : "bg-[var(--color-warning-light)] text-[var(--color-warning)]"
+                    }`}
+                  >
+                    {doc.available ? "Available" : "Not Generated"}
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <Button
+                    fullWidth
+                    variant={doc.available ? "secondary" : "secondary"}
+                    disabled={!doc.available}
+                    loading={downloading === doc.type}
+                    onClick={() => handleView(doc.type)}
+                  >
+                    {doc.available ? "View PDF" : "Not Available"}
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant={doc.available ? "primary" : "secondary"}
+                    disabled={!doc.available}
+                    loading={downloading === doc.type}
+                    onClick={() => handleDownload(doc.type)}
+                  >
+                    {doc.available ? "Download" : "Not Available"}
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+          <Card padding="lg">
+            <div className="text-center py-6">
+              <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+                Some documents are not yet generated. Generate them now to
+                receive your eKYC and PG Agreement PDFs via email.
+              </p>
+              <Button
+                variant="primary"
+                size="lg"
+                loading={generating}
+                onClick={() => setShowGenerateModal(true)}
+              >
+                {generating ? "Generating Documents..." : "Generate Documents"}
+              </Button>
+            </div>
+          </Card>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {documents.map((doc) => (

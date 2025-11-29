@@ -245,8 +245,12 @@ router.post("/setup-password", async (req, res, next) => {
 
     // Determine redirect path based on role and onboarding status
     let redirectTo = "/dashboard";
-    if (user.role === "PG_TENANT" && user.onboardingStatus !== "completed") {
-      redirectTo = "/tenant/onboarding";
+    if (user.role === "PG_TENANT") {
+      if (user.onboardingStatus === "completed") {
+        redirectTo = "/profile";
+      } else {
+        redirectTo = "/tenant/onboarding";
+      }
     }
 
     res.json({
@@ -620,8 +624,12 @@ router.post("/reset-password", async (req, res, next) => {
 
     // Determine redirect path based on role and onboarding status
     let redirectTo = "/dashboard";
-    if (user.role === "PG_TENANT" && user.onboardingStatus !== "completed") {
-      redirectTo = "/tenant/onboarding";
+    if (user.role === "PG_TENANT") {
+      if (user.onboardingStatus === "completed") {
+        redirectTo = "/profile";
+      } else {
+        redirectTo = "/tenant/onboarding";
+      }
     }
 
     res.json({
@@ -729,8 +737,12 @@ router.post("/update-password", async (req, res, next) => {
 
     // Determine redirect path based on role and onboarding status
     let redirectTo = "/dashboard";
-    if (user.role === "PG_TENANT" && user.onboardingStatus !== "completed") {
-      redirectTo = "/tenant/onboarding";
+    if (user.role === "PG_TENANT") {
+      if (user.onboardingStatus === "completed") {
+        redirectTo = "/profile";
+      } else {
+        redirectTo = "/tenant/onboarding";
+      }
     }
 
     res.json({

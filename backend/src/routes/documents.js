@@ -91,12 +91,30 @@ router.get("/my-documents", async (req, res, next) => {
 
     const documents = [];
 
-    // eKYC Document - check if base64 is stored (persistent) or path exists
-    if (
+    // If onboarding is completed, always show eKYC and Agreement documents
+    // (even if not generated yet, they'll show as "not available")
+    const isOnboardingCompleted = user.onboardingStatus === "completed";
+    const isKycVerified = user.kycStatus === "verified";
+    const isAgreementAccepted = user.agreementAccepted === true;
+
+    // eKYC Document - always show if KYC is verified or onboarding is completed
+    if (isKycVerified || isOnboardingCompleted) {
+      const hasBase64 = !!user.ekycDocumentBase64;
+      const ekycPath = user.ekycDocumentPath || user.kycDocumentUrl;
+      const pathExists = ekycPath && fs.existsSync(ekycPath);
+
+      documents.push({
+        type: "ekyc",
+        name: "eKYC Verification Document",
+        available: hasBase64 || pathExists,
+        generatedAt: user.documentsGeneratedAt || user.kycVerifiedAt || null,
+      });
+    } else if (
       user.ekycDocumentBase64 ||
       user.ekycDocumentPath ||
       user.kycDocumentUrl
     ) {
+      // Legacy: show if document exists even if KYC not verified
       const hasBase64 = !!user.ekycDocumentBase64;
       const ekycPath = user.ekycDocumentPath || user.kycDocumentUrl;
       const pathExists = ekycPath && fs.existsSync(ekycPath);
@@ -109,12 +127,26 @@ router.get("/my-documents", async (req, res, next) => {
       });
     }
 
-    // Agreement Document - check if base64 is stored (persistent) or path exists
-    if (
+    // Agreement Document - always show if agreement is accepted or onboarding is completed
+    if (isAgreementAccepted || isOnboardingCompleted) {
+      const hasBase64 = !!user.agreementDocumentBase64;
+      const agreementPath =
+        user.agreementDocumentPath || user.agreementDocumentUrl;
+      const pathExists = agreementPath && fs.existsSync(agreementPath);
+
+      documents.push({
+        type: "agreement",
+        name: "PG Rental Agreement",
+        available: hasBase64 || pathExists,
+        generatedAt:
+          user.documentsGeneratedAt || user.agreementAcceptedAt || null,
+      });
+    } else if (
       user.agreementDocumentBase64 ||
       user.agreementDocumentPath ||
       user.agreementDocumentUrl
     ) {
+      // Legacy: show if document exists even if agreement not accepted
       const hasBase64 = !!user.agreementDocumentBase64;
       const agreementPath =
         user.agreementDocumentPath || user.agreementDocumentUrl;
@@ -527,15 +559,15 @@ router.post("/generate", async (req, res, next) => {
       });
     }
 
-    // Check if documents already exist
+    // Allow regeneration even if documents exist (for re-sending emails, etc.)
+    // Just log a warning if documents already exist
     if (
       user.documentsGenerated &&
       (user.ekycDocumentBase64 || user.agreementDocumentBase64)
     ) {
-      return res.status(400).json({
-        error:
-          "Documents already generated. Use the download option to access them.",
-      });
+      console.log(
+        "[Documents] Documents already exist, regenerating and re-sending emails..."
+      );
     }
 
     // Get tenant profile and property
