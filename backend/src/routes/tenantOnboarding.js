@@ -710,12 +710,26 @@ async function generateAndSendDocuments(tenantId) {
       `[Documents] PDFs generated and verified: eKYC=${ekycPdfPath}, Agreement=${agreementPdfPath}`
     );
 
-    // Update user with document paths
-    user.ekycDocumentPath = ekycPdfPath;
-    user.agreementDocumentUrl = ekycPdfPath; // Also store as URL for consistency
-    user.agreementDocumentPath = agreementPdfPath;
-    user.kycDocumentUrl = ekycPdfPath; // Also store as URL for consistency
+    // Read PDFs into memory and store as base64 (Lambda /tmp is ephemeral)
+    console.log("[Documents] Reading PDFs into memory for storage...");
+    const ekycPdfBuffer = fs.readFileSync(ekycPdfPath);
+    const agreementPdfBuffer = fs.readFileSync(agreementPdfPath);
+
+    const ekycBase64 = ekycPdfBuffer.toString("base64");
+    const agreementBase64 = agreementPdfBuffer.toString("base64");
+
+    // Update user with document paths AND base64 content
+    user.ekycDocumentPath = ekycPdfPath; // Keep path for reference
+    user.agreementDocumentPath = agreementPdfPath; // Keep path for reference
+    user.ekycDocumentBase64 = ekycBase64; // Store base64 for persistence
+    user.agreementDocumentBase64 = agreementBase64; // Store base64 for persistence
+    user.documentsGenerated = true;
+    user.documentsGeneratedAt = new Date();
     await user.save();
+
+    console.log(
+      `[Documents] PDFs stored in database: eKYC=${ekycBase64.length} bytes, Agreement=${agreementBase64.length} bytes`
+    );
 
     // Check if email is configured
     const emailConfigured = isEmailConfigured();
@@ -754,6 +768,8 @@ async function generateAndSendDocuments(tenantId) {
         propertyName,
         ekycPdfPath,
         agreementPdfPath,
+        ekycPdfBuffer, // Pass buffer for email attachment
+        agreementPdfBuffer, // Pass buffer for email attachment
         isOwner: false,
       });
       console.log(`[Documents] ✅ Email sent to tenant: ${user.email}`);
@@ -779,6 +795,8 @@ async function generateAndSendDocuments(tenantId) {
         propertyName,
         ekycPdfPath,
         agreementPdfPath,
+        ekycPdfBuffer, // Pass buffer for email attachment
+        agreementPdfBuffer, // Pass buffer for email attachment
         isOwner: true,
       });
       console.log(`[Documents] ✅ Email sent to owner: ${owner.email}`);

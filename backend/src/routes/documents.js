@@ -29,28 +29,41 @@ router.get("/my-documents", async (req, res, next) => {
 
     const documents = [];
 
-    // eKYC Document
-    if (user.ekycDocumentPath || user.kycDocumentUrl) {
+    // eKYC Document - check if base64 is stored (persistent) or path exists
+    if (
+      user.ekycDocumentBase64 ||
+      user.ekycDocumentPath ||
+      user.kycDocumentUrl
+    ) {
+      const hasBase64 = !!user.ekycDocumentBase64;
       const ekycPath = user.ekycDocumentPath || user.kycDocumentUrl;
+      const pathExists = ekycPath && fs.existsSync(ekycPath);
+
       documents.push({
         type: "ekyc",
         name: "eKYC Verification Document",
-        path: ekycPath,
-        available: fs.existsSync(ekycPath),
-        generatedAt: user.kycVerifiedAt || null,
+        available: hasBase64 || pathExists,
+        generatedAt: user.documentsGeneratedAt || user.kycVerifiedAt || null,
       });
     }
 
-    // Agreement Document
-    if (user.agreementDocumentPath || user.agreementDocumentUrl) {
+    // Agreement Document - check if base64 is stored (persistent) or path exists
+    if (
+      user.agreementDocumentBase64 ||
+      user.agreementDocumentPath ||
+      user.agreementDocumentUrl
+    ) {
+      const hasBase64 = !!user.agreementDocumentBase64;
       const agreementPath =
         user.agreementDocumentPath || user.agreementDocumentUrl;
+      const pathExists = agreementPath && fs.existsSync(agreementPath);
+
       documents.push({
         type: "agreement",
         name: "PG Rental Agreement",
-        path: agreementPath,
-        available: fs.existsSync(agreementPath),
-        generatedAt: user.agreementAcceptedAt || null,
+        available: hasBase64 || pathExists,
+        generatedAt:
+          user.documentsGeneratedAt || user.agreementAcceptedAt || null,
       });
     }
 
@@ -90,34 +103,45 @@ router.get("/download/:type", async (req, res, next) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    let filePath = null;
+    let pdfBuffer = null;
     let fileName = "";
 
     if (type === "ekyc") {
-      filePath = user.ekycDocumentPath || user.kycDocumentUrl;
       fileName = `eKYC-${user.name.replace(/\s+/g, "-")}.pdf`;
+      // Prefer base64 (persistent), fallback to file path
+      if (user.ekycDocumentBase64) {
+        pdfBuffer = Buffer.from(user.ekycDocumentBase64, "base64");
+      } else {
+        const filePath = user.ekycDocumentPath || user.kycDocumentUrl;
+        if (filePath && fs.existsSync(filePath)) {
+          pdfBuffer = fs.readFileSync(filePath);
+        }
+      }
     } else if (type === "agreement") {
-      filePath = user.agreementDocumentPath || user.agreementDocumentUrl;
       fileName = `PG-Agreement-${user.name.replace(/\s+/g, "-")}.pdf`;
+      // Prefer base64 (persistent), fallback to file path
+      if (user.agreementDocumentBase64) {
+        pdfBuffer = Buffer.from(user.agreementDocumentBase64, "base64");
+      } else {
+        const filePath =
+          user.agreementDocumentPath || user.agreementDocumentUrl;
+        if (filePath && fs.existsSync(filePath)) {
+          pdfBuffer = fs.readFileSync(filePath);
+        }
+      }
     }
 
-    if (!filePath) {
+    if (!pdfBuffer) {
       return res.status(404).json({
-        error: `${type === "ekyc" ? "eKYC" : "Agreement"} document not found`,
-      });
-    }
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        error: `Document file not found at path: ${filePath}`,
+        error: `${
+          type === "ekyc" ? "eKYC" : "Agreement"
+        } document not found or not generated yet`,
       });
     }
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
+    res.send(pdfBuffer);
   } catch (error) {
     next(error);
   }
@@ -169,26 +193,40 @@ router.get("/tenant-documents", async (req, res, next) => {
 
       const documents = [];
 
-      if (tenant.ekycDocumentPath || tenant.kycDocumentUrl) {
+      if (
+        tenant.ekycDocumentBase64 ||
+        tenant.ekycDocumentPath ||
+        tenant.kycDocumentUrl
+      ) {
+        const hasBase64 = !!tenant.ekycDocumentBase64;
         const ekycPath = tenant.ekycDocumentPath || tenant.kycDocumentUrl;
+        const pathExists = ekycPath && fs.existsSync(ekycPath);
+
         documents.push({
           type: "ekyc",
           name: "eKYC Verification Document",
-          path: ekycPath,
-          available: fs.existsSync(ekycPath),
-          generatedAt: tenant.kycVerifiedAt || null,
+          available: hasBase64 || pathExists,
+          generatedAt:
+            tenant.documentsGeneratedAt || tenant.kycVerifiedAt || null,
         });
       }
 
-      if (tenant.agreementDocumentPath || tenant.agreementDocumentUrl) {
+      if (
+        tenant.agreementDocumentBase64 ||
+        tenant.agreementDocumentPath ||
+        tenant.agreementDocumentUrl
+      ) {
+        const hasBase64 = !!tenant.agreementDocumentBase64;
         const agreementPath =
           tenant.agreementDocumentPath || tenant.agreementDocumentUrl;
+        const pathExists = agreementPath && fs.existsSync(agreementPath);
+
         documents.push({
           type: "agreement",
           name: "PG Rental Agreement",
-          path: agreementPath,
-          available: fs.existsSync(agreementPath),
-          generatedAt: tenant.agreementAcceptedAt || null,
+          available: hasBase64 || pathExists,
+          generatedAt:
+            tenant.documentsGeneratedAt || tenant.agreementAcceptedAt || null,
         });
       }
 
@@ -219,7 +257,7 @@ router.get("/tenant-documents", async (req, res, next) => {
     })
       .populate(
         "userId",
-        "name email phone onboardingStatus kycDocumentUrl agreementDocumentUrl ekycDocumentPath agreementDocumentPath kycVerifiedAt agreementAcceptedAt"
+        "name email phone onboardingStatus kycDocumentUrl agreementDocumentUrl ekycDocumentPath agreementDocumentPath ekycDocumentBase64 agreementDocumentBase64 documentsGenerated documentsGeneratedAt kycVerifiedAt agreementAcceptedAt"
       )
       .lean();
 
@@ -229,8 +267,10 @@ router.get("/tenant-documents", async (req, res, next) => {
         if (!tenant) return null;
 
         const hasDocuments =
+          tenant.ekycDocumentBase64 ||
           tenant.ekycDocumentPath ||
           tenant.kycDocumentUrl ||
+          tenant.agreementDocumentBase64 ||
           tenant.agreementDocumentPath ||
           tenant.agreementDocumentUrl;
 
@@ -301,34 +341,45 @@ router.get("/tenant/:tenantId/download/:type", async (req, res, next) => {
       }
     }
 
-    let filePath = null;
+    let pdfBuffer = null;
     let fileName = "";
 
     if (type === "ekyc") {
-      filePath = tenant.ekycDocumentPath || tenant.kycDocumentUrl;
       fileName = `eKYC-${tenant.name.replace(/\s+/g, "-")}.pdf`;
+      // Prefer base64 (persistent), fallback to file path
+      if (tenant.ekycDocumentBase64) {
+        pdfBuffer = Buffer.from(tenant.ekycDocumentBase64, "base64");
+      } else {
+        const filePath = tenant.ekycDocumentPath || tenant.kycDocumentUrl;
+        if (filePath && fs.existsSync(filePath)) {
+          pdfBuffer = fs.readFileSync(filePath);
+        }
+      }
     } else if (type === "agreement") {
-      filePath = tenant.agreementDocumentPath || tenant.agreementDocumentUrl;
       fileName = `PG-Agreement-${tenant.name.replace(/\s+/g, "-")}.pdf`;
+      // Prefer base64 (persistent), fallback to file path
+      if (tenant.agreementDocumentBase64) {
+        pdfBuffer = Buffer.from(tenant.agreementDocumentBase64, "base64");
+      } else {
+        const filePath =
+          tenant.agreementDocumentPath || tenant.agreementDocumentUrl;
+        if (filePath && fs.existsSync(filePath)) {
+          pdfBuffer = fs.readFileSync(filePath);
+        }
+      }
     }
 
-    if (!filePath) {
+    if (!pdfBuffer) {
       return res.status(404).json({
-        error: `${type === "ekyc" ? "eKYC" : "Agreement"} document not found`,
-      });
-    }
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({
-        error: `Document file not found at path: ${filePath}`,
+        error: `${
+          type === "ekyc" ? "eKYC" : "Agreement"
+        } document not found or not generated yet`,
       });
     }
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
-
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
+    res.send(pdfBuffer);
   } catch (error) {
     next(error);
   }

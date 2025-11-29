@@ -175,6 +175,21 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Store PDF content as base64 for persistence (Lambda /tmp is ephemeral)
+    ekycDocumentBase64: {
+      type: String,
+    },
+    agreementDocumentBase64: {
+      type: String,
+    },
+    // Flag to indicate documents were generated
+    documentsGenerated: {
+      type: Boolean,
+      default: false,
+    },
+    documentsGeneratedAt: {
+      type: Date,
+    },
     // Agreement acceptance details
     agreementAccepted: {
       type: Boolean,

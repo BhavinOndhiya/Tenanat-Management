@@ -1299,6 +1299,8 @@ export const sendOnboardingDocumentsEmail = async ({
   propertyName,
   ekycPdfPath,
   agreementPdfPath,
+  ekycPdfBuffer,
+  agreementPdfBuffer,
   isOwner = false,
 }) => {
   if (!transporter) {
@@ -1334,56 +1336,74 @@ export const sendOnboardingDocumentsEmail = async ({
 
     const attachments = [];
 
-    // Add eKYC document - read file into memory for Lambda compatibility
-    if (ekycPdfPath) {
-      if (fs.existsSync(ekycPdfPath)) {
-        console.log(`[EMAIL] Reading eKYC PDF from: ${ekycPdfPath}`);
-        try {
-          const fileContent = fs.readFileSync(ekycPdfPath);
-          attachments.push({
-            filename: `eKYC-${tenantName.replace(/\s+/g, "-")}.pdf`,
-            content: fileContent,
-            contentType: "application/pdf",
-          });
-          console.log(
-            `[EMAIL] ✅ eKYC PDF added to attachments (${fileContent.length} bytes)`
-          );
-        } catch (readError) {
-          console.error(
-            `[EMAIL] ❌ Failed to read eKYC PDF: ${readError.message}`
-          );
-          throw new Error(`Failed to read eKYC PDF: ${readError.message}`);
-        }
-      } else {
-        console.warn(`[EMAIL] ⚠️ eKYC PDF not found at path: ${ekycPdfPath}`);
+    // Add eKYC document - use buffer if provided, otherwise try to read from path
+    if (ekycPdfBuffer) {
+      console.log(
+        `[EMAIL] Using eKYC PDF buffer (${ekycPdfBuffer.length} bytes)`
+      );
+      attachments.push({
+        filename: `eKYC-${tenantName.replace(/\s+/g, "-")}.pdf`,
+        content: ekycPdfBuffer,
+        contentType: "application/pdf",
+      });
+      console.log(`[EMAIL] ✅ eKYC PDF added to attachments`);
+    } else if (ekycPdfPath && fs.existsSync(ekycPdfPath)) {
+      console.log(`[EMAIL] Reading eKYC PDF from: ${ekycPdfPath}`);
+      try {
+        const fileContent = fs.readFileSync(ekycPdfPath);
+        attachments.push({
+          filename: `eKYC-${tenantName.replace(/\s+/g, "-")}.pdf`,
+          content: fileContent,
+          contentType: "application/pdf",
+        });
+        console.log(
+          `[EMAIL] ✅ eKYC PDF added to attachments (${fileContent.length} bytes)`
+        );
+      } catch (readError) {
+        console.error(
+          `[EMAIL] ❌ Failed to read eKYC PDF: ${readError.message}`
+        );
+        throw new Error(`Failed to read eKYC PDF: ${readError.message}`);
       }
+    } else {
+      console.warn(
+        `[EMAIL] ⚠️ eKYC PDF not available (no buffer or path: ${ekycPdfPath})`
+      );
     }
 
-    // Add Agreement document - read file into memory for Lambda compatibility
-    if (agreementPdfPath) {
-      if (fs.existsSync(agreementPdfPath)) {
-        console.log(`[EMAIL] Reading Agreement PDF from: ${agreementPdfPath}`);
-        try {
-          const fileContent = fs.readFileSync(agreementPdfPath);
-          attachments.push({
-            filename: `PG-Agreement-${tenantName.replace(/\s+/g, "-")}.pdf`,
-            content: fileContent,
-            contentType: "application/pdf",
-          });
-          console.log(
-            `[EMAIL] ✅ Agreement PDF added to attachments (${fileContent.length} bytes)`
-          );
-        } catch (readError) {
-          console.error(
-            `[EMAIL] ❌ Failed to read Agreement PDF: ${readError.message}`
-          );
-          throw new Error(`Failed to read Agreement PDF: ${readError.message}`);
-        }
-      } else {
-        console.warn(
-          `[EMAIL] ⚠️ Agreement PDF not found at path: ${agreementPdfPath}`
+    // Add Agreement document - use buffer if provided, otherwise try to read from path
+    if (agreementPdfBuffer) {
+      console.log(
+        `[EMAIL] Using Agreement PDF buffer (${agreementPdfBuffer.length} bytes)`
+      );
+      attachments.push({
+        filename: `PG-Agreement-${tenantName.replace(/\s+/g, "-")}.pdf`,
+        content: agreementPdfBuffer,
+        contentType: "application/pdf",
+      });
+      console.log(`[EMAIL] ✅ Agreement PDF added to attachments`);
+    } else if (agreementPdfPath && fs.existsSync(agreementPdfPath)) {
+      console.log(`[EMAIL] Reading Agreement PDF from: ${agreementPdfPath}`);
+      try {
+        const fileContent = fs.readFileSync(agreementPdfPath);
+        attachments.push({
+          filename: `PG-Agreement-${tenantName.replace(/\s+/g, "-")}.pdf`,
+          content: fileContent,
+          contentType: "application/pdf",
+        });
+        console.log(
+          `[EMAIL] ✅ Agreement PDF added to attachments (${fileContent.length} bytes)`
         );
+      } catch (readError) {
+        console.error(
+          `[EMAIL] ❌ Failed to read Agreement PDF: ${readError.message}`
+        );
+        throw new Error(`Failed to read Agreement PDF: ${readError.message}`);
       }
+    } else {
+      console.warn(
+        `[EMAIL] ⚠️ Agreement PDF not available (no buffer or path: ${agreementPdfPath})`
+      );
     }
 
     if (attachments.length === 0) {
