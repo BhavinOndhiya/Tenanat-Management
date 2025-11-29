@@ -52,19 +52,29 @@ export const api = {
           data,
         });
 
-        // Handle 401 (Unauthorized) - token expired or invalid
-        if (response.status === 401) {
-          // Clear invalid token
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          // Redirect to login if not already there
-          if (!window.location.pathname.includes("/auth/login")) {
-            window.location.href = "/auth/login";
+        const errorMessage =
+          data.error || `Request failed with status ${response.status}`;
+
+        // Handle auth errors - token missing/expired/invalid/deactivated
+        if (response.status === 401 || response.status === 403) {
+          const msg = (data.error || "").toLowerCase();
+
+          const isAuthProblem =
+            msg.includes("access token required") ||
+            msg.includes("invalid or expired token") ||
+            msg.includes("account is deactivated");
+
+          if (isAuthProblem) {
+            // Clear invalid session
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            // Redirect to login if not already there
+            if (!window.location.pathname.includes("/auth/login")) {
+              window.location.href = "/auth/login";
+            }
           }
         }
 
-        const errorMessage =
-          data.error || `Request failed with status ${response.status}`;
         throw new Error(errorMessage);
       }
 

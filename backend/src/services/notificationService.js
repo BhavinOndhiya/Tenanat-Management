@@ -545,18 +545,31 @@ const buildPaymentReceiptEmail = ({
   paymentMethod,
 }) => {
   // Use backend URL for invoice downloads since invoices are served from backend
-  const backendUrl =
+  // Normalize BACKEND_URL so we don't end up with /api/api/... in the link
+  let backendUrl =
     process.env.BACKEND_URL ||
     process.env.API_URL ||
     process.env.FRONTEND_URL?.replace(":5173", ":3000") ||
     "http://localhost:3000";
-  const fullInvoiceUrl = invoiceUrl
-    ? invoiceUrl.startsWith("http")
-      ? invoiceUrl
-      : `${backendUrl}${invoiceUrl}${
-          invoiceUrl.includes("?") ? "&" : "?"
-        }download=true`
-    : null;
+
+  if (backendUrl.endsWith("/")) {
+    backendUrl = backendUrl.slice(0, -1);
+  }
+
+  const normalizedInvoicePath = (() => {
+    if (!invoiceUrl) return null;
+    if (invoiceUrl.startsWith("http")) return invoiceUrl;
+
+    // invoiceService returns paths like /api/invoices/...
+    // If BACKEND_URL already includes /api, avoid duplicating it
+    let path = invoiceUrl;
+    if (backendUrl.endsWith("/api") && path.startsWith("/api")) {
+      path = path.slice(4) || "/";
+    }
+    return `${backendUrl}${path}${path.includes("?") ? "&" : "?"}download=true`;
+  })();
+
+  const fullInvoiceUrl = normalizedInvoicePath;
 
   const chargesBreakdown = [];
   if (baseAmount > 0) {
