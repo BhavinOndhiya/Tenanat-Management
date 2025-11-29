@@ -413,17 +413,13 @@ function Dashboard() {
               Refresh
             </button>
           </div>
-          {announcementLoading ||
-          eventsLoading ||
-          (user?.role === "PG_TENANT" && recentPaymentsLoading) ? (
+          {announcementLoading || eventsLoading ? (
             <div className="flex justify-center py-8">
               <Loader />
             </div>
-          ) : announcements.length === 0 &&
-            upcomingEvents.length === 0 &&
-            (user?.role !== "PG_TENANT" || recentPayments.length === 0) ? (
+          ) : announcements.length === 0 && upcomingEvents.length === 0 ? (
             <p className="text-[var(--color-text-secondary)] text-sm">
-              No announcements, events, or payments.
+              No announcements or events.
             </p>
           ) : (
             <div className="space-y-3">
@@ -468,69 +464,79 @@ function Dashboard() {
                   </p>
                 </div>
               ))}
-
-              {user?.role === "PG_TENANT" && recentPayments.length > 0 && (
-                <>
-                  <div className="pt-3 border-t border-[var(--color-border)]">
-                    <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
-                      Recent Payments
-                    </h3>
-                  </div>
-                  {recentPayments.map((payment) => (
-                    <div
-                      key={payment.id}
-                      className="border border-[var(--color-border)] rounded-lg px-3 py-2 bg-[var(--color-bg-secondary)]"
-                    >
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex-1">
-                          <span className="font-semibold text-[var(--color-text-primary)]">
-                            {payment.periodLabel}
-                          </span>
-                          <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
-                            {payment.property?.name || "PG Property"}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <span className="font-semibold text-[var(--color-text-primary)]">
-                            ₹
-                            {payment.totalAmount?.toLocaleString("en-IN") ||
-                              payment.amount?.toLocaleString("en-IN") ||
-                              "0"}
-                          </span>
-                          <p
-                            className={`text-xs mt-0.5 ${
-                              payment.status === "PAID"
-                                ? "text-green-600"
-                                : payment.status === "PENDING"
-                                ? "text-yellow-600"
-                                : "text-[var(--color-text-secondary)]"
-                            }`}
-                          >
-                            {payment.status}
-                          </p>
-                        </div>
-                      </div>
-                      {payment.paidAt && (
-                        <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-                          Paid:{" "}
-                          {new Date(payment.paidAt).toLocaleDateString("en-IN")}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                  <div className="pt-2">
-                    <Link
-                      to="/pg-tenant/payments"
-                      className="text-xs text-[var(--color-primary)] hover:underline font-medium"
-                    >
-                      View all payment history →
-                    </Link>
-                  </div>
-                </>
-              )}
             </div>
           )}
         </Card>
+
+        {user?.role === "PG_TENANT" && (
+          <Card padding="lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+                Payment History
+              </h2>
+              <Link
+                to="/pg-tenant/payments"
+                className="text-xs text-[var(--color-primary)] hover:underline"
+              >
+                View all
+              </Link>
+            </div>
+            {recentPaymentsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader />
+              </div>
+            ) : recentPayments.length === 0 ? (
+              <p className="text-[var(--color-text-secondary)] text-sm">
+                No payments found yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {recentPayments.map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="border border-[var(--color-border)] rounded-lg px-3 py-2 bg-[var(--color-bg-secondary)]"
+                  >
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex-1">
+                        <span className="font-semibold text-[var(--color-text-primary)]">
+                          {payment.periodLabel}
+                        </span>
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                          {payment.property?.name || "PG Property"}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-semibold text-[var(--color-text-primary)]">
+                          ₹
+                          {payment.totalAmount?.toLocaleString("en-IN") ||
+                            payment.amount?.toLocaleString("en-IN") ||
+                            "0"}
+                        </span>
+                        <p
+                          className={`text-xs mt-0.5 ${
+                            payment.status === "PAID"
+                              ? "text-green-600"
+                              : payment.status === "PENDING"
+                              ? "text-yellow-600"
+                              : "text-[var(--color-text-secondary)]"
+                          }`}
+                        >
+                          {payment.status}
+                        </p>
+                      </div>
+                    </div>
+                    {payment.paidAt && (
+                      <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                        Paid:{" "}
+                        {new Date(payment.paidAt).toLocaleDateString("en-IN")}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
       </div>
 
       {user?.role === "PG_TENANT" && (
