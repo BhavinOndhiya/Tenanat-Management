@@ -3,10 +3,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "../utils/api";
 import { showToast } from "../utils/toast";
+import { useAuth } from "../context/AuthContext";
 
 export default function UpdatePassword() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { login: storeSession } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -58,12 +60,31 @@ export default function UpdatePassword() {
       const result = await api.updatePassword(token, password);
 
       if (result.success) {
-        showToast.success(
-          "Password updated successfully! Redirecting to login..."
-        );
-        setTimeout(() => {
-          navigate("/auth/login", { replace: true });
-        }, 1500);
+        showToast.success("Password updated successfully! Redirecting...");
+
+        // If API returned token and redirectTo, use them
+        if (result.token && result.redirectTo) {
+          // Get user data and store session
+          try {
+            const userData = await api.getMe();
+            storeSession(
+              {
+                ...userData,
+                onboardingStatus: result.onboardingStatus,
+              },
+              result.token
+            );
+            navigate(result.redirectTo, { replace: true });
+          } catch (error) {
+            console.error("Failed to get user data:", error);
+            navigate("/auth/login", { replace: true });
+          }
+        } else {
+          // Fallback: redirect to login
+          setTimeout(() => {
+            navigate("/auth/login", { replace: true });
+          }, 1500);
+        }
       }
     } catch (error) {
       setError(error.message || "Failed to update password. Please try again.");

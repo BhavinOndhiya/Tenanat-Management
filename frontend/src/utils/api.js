@@ -114,6 +114,69 @@ export const api = {
     });
   },
 
+  // Tenant onboarding endpoints
+  async getTenantOnboarding() {
+    return this.request("/tenant/onboarding");
+  },
+
+  async submitTenantKyc(formData) {
+    // FormData for file uploads
+    const token = localStorage.getItem("token");
+    const formDataToSend = new FormData();
+
+    Object.keys(formData).forEach((key) => {
+      if (formData[key] !== null && formData[key] !== undefined) {
+        if (key === "idFront" || key === "idBack" || key === "selfie") {
+          // File uploads
+          if (formData[key] instanceof File) {
+            formDataToSend.append(key, formData[key]);
+          }
+        } else {
+          // Regular fields
+          formDataToSend.append(key, formData[key]);
+        }
+      }
+    });
+
+    const response = await fetch(`${API_BASE_URL}/tenant/ekyc`, {
+      method: "POST",
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formDataToSend,
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "KYC submission failed");
+    }
+
+    return response.json();
+  },
+
+  async getAgreementPreview() {
+    const response = await fetch(`${API_BASE_URL}/tenant/agreement/preview`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "Failed to fetch agreement");
+    }
+
+    return response.text(); // Return HTML as text
+  },
+
+  async acceptAgreement(otp, consentFlags) {
+    return this.request("/tenant/agreement/accept", {
+      method: "POST",
+      body: { otp, consentFlags },
+    });
+  },
+
   async forgotPassword(email) {
     return this.request("/auth/forgot-password", {
       method: "POST",

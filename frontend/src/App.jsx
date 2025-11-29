@@ -40,12 +40,13 @@ import PgTenantManagement from "./pages/owner/PgTenantManagement";
 import PgProperties from "./pages/owner/PgProperties";
 import PgOwnerPayments from "./pages/owner/PgOwnerPayments";
 import PgTenantPayments from "./pages/PgTenantPayments";
+import TenantOnboarding from "./pages/TenantOnboarding";
 import Navbar from "./components/Navbar";
 import Loader from "./components/ui/Loader";
 import { getDefaultRouteForRole } from "./utils/roles";
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
   if (loading) {
     return (
@@ -55,7 +56,20 @@ function ProtectedRoute({ children }) {
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/auth/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  // Redirect tenants to onboarding if not completed
+  if (
+    user?.role === "PG_TENANT" &&
+    user?.onboardingStatus &&
+    user.onboardingStatus !== "completed"
+  ) {
+    return <Navigate to="/tenant/onboarding" replace />;
+  }
+
+  return children;
 }
 
 function OfficerRoute({ children }) {
@@ -138,6 +152,16 @@ function RoleRoute({ roles, children }) {
 
   if (!roles.includes(user?.role)) {
     return <Navigate to={getDefaultRouteForRole(user?.role)} replace />;
+  }
+
+  // For tenant routes (except onboarding), redirect to onboarding if not completed
+  if (
+    user?.role === "PG_TENANT" &&
+    !window.location.pathname.includes("/tenant/onboarding") &&
+    user?.onboardingStatus &&
+    user.onboardingStatus !== "completed"
+  ) {
+    return <Navigate to="/tenant/onboarding" replace />;
   }
 
   return children;
@@ -334,6 +358,14 @@ function App() {
             element={
               <RoleRoute roles={["PG_TENANT"]}>
                 <PgTenantPayments />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/tenant/onboarding"
+            element={
+              <RoleRoute roles={["PG_TENANT"]}>
+                <TenantOnboarding />
               </RoleRoute>
             }
           />

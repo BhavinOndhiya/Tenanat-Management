@@ -125,6 +125,38 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // Tenant onboarding status
+    // State machine: "invited" → "kyc_pending" → "kyc_verified" → "completed"
+    onboardingStatus: {
+      type: String,
+      enum: ["invited", "kyc_pending", "kyc_verified", "completed"],
+      default: null,
+    },
+    // KYC verification details
+    kycStatus: {
+      type: String,
+      enum: ["pending", "verified", "rejected"],
+      default: null,
+    },
+    kycTransactionId: {
+      type: String,
+      trim: true,
+    },
+    kycVerifiedAt: {
+      type: Date,
+    },
+    // Agreement acceptance details
+    agreementAccepted: {
+      type: Boolean,
+      default: false,
+    },
+    agreementAcceptedAt: {
+      type: Date,
+    },
+    agreementOtpRef: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

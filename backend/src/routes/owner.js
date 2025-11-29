@@ -1143,6 +1143,13 @@ router.post("/pg/tenants", async (req, res, next) => {
       existingUser.assignedProperty = property._id;
       if (name) existingUser.name = name.trim();
       if (phone) existingUser.phone = phone.trim();
+      // Set onboarding status if not already completed
+      if (
+        !existingUser.onboardingStatus ||
+        existingUser.onboardingStatus !== "completed"
+      ) {
+        existingUser.onboardingStatus = "invited";
+      }
       await existingUser.save();
 
       tenantUser = existingUser;
@@ -1202,6 +1209,7 @@ router.post("/pg/tenants", async (req, res, next) => {
         assignedProperty: property._id,
         passwordHash,
         isActive: true,
+        onboardingStatus: "invited", // Tenant needs to complete onboarding
       });
 
       // If password setup is required, update token with actual userId

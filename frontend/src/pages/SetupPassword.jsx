@@ -90,19 +90,43 @@ export default function SetupPassword() {
       const result = await api.setupPassword(token, password);
 
       if (result.success) {
-        showToast.success("Password set successfully! Redirecting to login...");
+        showToast.success("Password set successfully! Redirecting...");
 
-        // Auto-login after password setup
-        setTimeout(async () => {
-          try {
-            const loginResult = await api.login(userInfo.email, password);
-            storeSession(loginResult.user, loginResult.token);
-            navigate("/dashboard", { replace: true });
-          } catch (loginError) {
-            // If auto-login fails, redirect to login page
-            navigate("/auth/login", { replace: true });
-          }
-        }, 1500);
+        // If API returned token and redirectTo, use them
+        if (result.token && result.redirectTo) {
+          storeSession(
+            {
+              id: userInfo?.id,
+              name: userInfo?.name,
+              email: userInfo?.email,
+              role: result.role,
+              onboardingStatus: result.onboardingStatus,
+            },
+            result.token
+          );
+          navigate(result.redirectTo, { replace: true });
+        } else {
+          // Fallback: Auto-login after password setup
+          setTimeout(async () => {
+            try {
+              const loginResult = await api.login(userInfo.email, password);
+              storeSession(loginResult.user, loginResult.token);
+              // Check if tenant needs onboarding
+              if (
+                loginResult.user.role === "PG_TENANT" &&
+                loginResult.user.onboardingStatus &&
+                loginResult.user.onboardingStatus !== "completed"
+              ) {
+                navigate("/tenant/onboarding", { replace: true });
+              } else {
+                navigate("/dashboard", { replace: true });
+              }
+            } catch (loginError) {
+              // If auto-login fails, redirect to login page
+              navigate("/auth/login", { replace: true });
+            }
+          }, 1500);
+        }
       }
     } catch (error) {
       setError(error.message || "Failed to set password. Please try again.");

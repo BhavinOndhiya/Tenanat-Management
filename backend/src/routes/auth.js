@@ -220,15 +220,42 @@ router.post("/setup-password", async (req, res, next) => {
     if (user.usedPasswordTokens.length > 50) {
       user.usedPasswordTokens = user.usedPasswordTokens.slice(-50);
     }
+
+    // For tenants, set onboarding status to kyc_pending
+    if (user.role === "PG_TENANT") {
+      user.onboardingStatus = "kyc_pending";
+    }
+
     await user.save();
 
     console.log(
       `[Password Setup] Password set successfully for user ${user.email}`
     );
 
+    // Generate JWT token for auto-login
+    const authToken = jwt.sign(
+      {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role || "CITIZEN",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // Determine redirect path based on role and onboarding status
+    let redirectTo = "/dashboard";
+    if (user.role === "PG_TENANT" && user.onboardingStatus !== "completed") {
+      redirectTo = "/tenant/onboarding";
+    }
+
     res.json({
       success: true,
       message: "Password set successfully. You can now login.",
+      token: authToken,
+      role: user.role,
+      onboardingStatus: user.onboardingStatus,
+      redirectTo,
     });
   } catch (error) {
     next(error);
@@ -568,16 +595,43 @@ router.post("/reset-password", async (req, res, next) => {
     if (user.usedPasswordTokens.length > 50) {
       user.usedPasswordTokens = user.usedPasswordTokens.slice(-50);
     }
+
+    // For tenants, set onboarding status to kyc_pending
+    if (user.role === "PG_TENANT") {
+      user.onboardingStatus = "kyc_pending";
+    }
+
     await user.save();
 
     console.log(
       `[Password Reset] Password reset successfully for user ${user.email}`
     );
 
+    // Generate JWT token for auto-login
+    const authToken = jwt.sign(
+      {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role || "CITIZEN",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // Determine redirect path based on role and onboarding status
+    let redirectTo = "/dashboard";
+    if (user.role === "PG_TENANT" && user.onboardingStatus !== "completed") {
+      redirectTo = "/tenant/onboarding";
+    }
+
     res.json({
       success: true,
       message:
         "Password reset successfully. You can now login with your new password.",
+      token: authToken,
+      role: user.role,
+      onboardingStatus: user.onboardingStatus,
+      redirectTo,
     });
   } catch (error) {
     next(error);
@@ -650,15 +704,42 @@ router.post("/update-password", async (req, res, next) => {
     if (user.usedPasswordTokens.length > 50) {
       user.usedPasswordTokens = user.usedPasswordTokens.slice(-50);
     }
+
+    // For tenants, set onboarding status to kyc_pending if not already completed
+    if (user.role === "PG_TENANT" && user.onboardingStatus !== "completed") {
+      user.onboardingStatus = "kyc_pending";
+    }
+
     await user.save();
 
     console.log(
       `[Password Update] Password updated successfully for user ${user.email}`
     );
 
+    // Generate JWT token for auto-login
+    const authToken = jwt.sign(
+      {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role || "CITIZEN",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // Determine redirect path based on role and onboarding status
+    let redirectTo = "/dashboard";
+    if (user.role === "PG_TENANT" && user.onboardingStatus !== "completed") {
+      redirectTo = "/tenant/onboarding";
+    }
+
     res.json({
       success: true,
       message: "Password updated successfully.",
+      token: authToken,
+      role: user.role,
+      onboardingStatus: user.onboardingStatus,
+      redirectTo,
     });
   } catch (error) {
     next(error);

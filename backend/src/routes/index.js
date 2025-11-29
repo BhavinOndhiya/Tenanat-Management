@@ -12,6 +12,7 @@ import tenantRoutes from "./tenants.js";
 import dashboardRoutes from "./dashboard.js";
 import ownerRoutes from "./owner.js";
 import pgTenantRoutes from "./pgTenant.js";
+import tenantOnboardingRoutes from "./tenantOnboarding.js";
 import testEmailRoutes from "./testEmail.js";
 import { authenticateToken } from "../middleware/auth.js";
 import User from "../models/User.js";
@@ -24,7 +25,7 @@ router.get("/me", authenticateToken, async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id)
       .select(
-        "name email role isActive avatarUrl assignedProperty ownerProperties"
+        "name email role isActive avatarUrl assignedProperty ownerProperties onboardingStatus"
       )
       .populate("assignedProperty", "buildingName block flatNumber floor type");
 
@@ -51,6 +52,7 @@ router.get("/me", authenticateToken, async (req, res, next) => {
       role: user.role || "CITIZEN",
       isActive: user.isActive,
       avatarUrl: user.avatarUrl || null,
+      onboardingStatus: user.onboardingStatus || null,
       navAccess,
       assignedProperty,
     });
@@ -72,6 +74,7 @@ router.use("/tenants", tenantRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/owner", ownerRoutes);
 router.use("/pg-tenant", pgTenantRoutes);
+router.use("/tenant", tenantOnboardingRoutes);
 router.use("/test-email", testEmailRoutes);
 
 export default router;

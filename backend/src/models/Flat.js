@@ -91,6 +91,49 @@ const flatSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // PG-specific onboarding fields
+    defaultRent: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    defaultDeposit: {
+      type: Number,
+      min: 0,
+      default: null,
+    },
+    dueDate: {
+      type: Number, // Day of month (1-31)
+      min: 1,
+      max: 31,
+      default: 1,
+    },
+    lastPenaltyFreeDate: {
+      type: Number, // Day of month (1-31)
+      min: 1,
+      max: 31,
+      default: 5,
+    },
+    lateFeePerDay: {
+      type: Number,
+      min: 0,
+      default: 50,
+    },
+    noticePeriodMonths: {
+      type: Number,
+      min: 0,
+      default: 1,
+    },
+    lockInMonths: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    houseRules: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   {
     timestamps: true,

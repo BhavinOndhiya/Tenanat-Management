@@ -3,10 +3,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { api } from "../utils/api";
 import { showToast } from "../utils/toast";
+import { useAuth } from "../context/AuthContext";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { login: storeSession } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -76,12 +78,31 @@ export default function ResetPassword() {
       console.log("[ResetPassword] Reset password result:", result);
 
       if (result.success) {
-        showToast.success(
-          "Password reset successfully! Redirecting to login..."
-        );
-        setTimeout(() => {
-          navigate("/auth/login", { replace: true });
-        }, 1500);
+        showToast.success("Password reset successfully! Redirecting...");
+
+        // If API returned token and redirectTo, use them
+        if (result.token && result.redirectTo) {
+          // Get user data and store session
+          try {
+            const userData = await api.getMe();
+            storeSession(
+              {
+                ...userData,
+                onboardingStatus: result.onboardingStatus,
+              },
+              result.token
+            );
+            navigate(result.redirectTo, { replace: true });
+          } catch (error) {
+            console.error("Failed to get user data:", error);
+            navigate("/auth/login", { replace: true });
+          }
+        } else {
+          // Fallback: redirect to login
+          setTimeout(() => {
+            navigate("/auth/login", { replace: true });
+          }, 1500);
+        }
       } else {
         setError(result.error || "Failed to reset password. Please try again.");
         setLoading(false);
