@@ -448,17 +448,17 @@ function Dashboard() {
               {upcomingEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="border border-[var(--color-border)] rounded-lg px-3 py-2 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-700/50"
+                  className="border border-[var(--color-border)] rounded-lg px-3 py-2 bg-blue-50 dark:bg-blue-900/40 dark:border-blue-600/60"
                 >
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-semibold text-[var(--color-text-primary)] dark:text-blue-100">
+                    <span className="font-semibold text-[var(--color-text-primary)] dark:text-white">
                       {event.title}
                     </span>
-                    <span className="text-xs uppercase text-blue-600 dark:text-blue-300 font-semibold">
+                    <span className="text-xs uppercase text-blue-600 dark:text-blue-200 font-semibold">
                       EVENT
                     </span>
                   </div>
-                  <p className="text-xs text-[var(--color-text-secondary)] dark:text-blue-200/90">
+                  <p className="text-xs text-[var(--color-text-secondary)] dark:text-blue-100 font-medium">
                     {new Date(event.date).toLocaleDateString()} ·{" "}
                     {event.location}
                   </p>
