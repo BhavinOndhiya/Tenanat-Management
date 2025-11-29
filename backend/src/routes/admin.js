@@ -645,7 +645,7 @@ router.get("/users/:id", async (req, res, next) => {
 
 /**
  * DELETE /api/admin/users/:id
- * Admin can delete any user (with safety checks)
+ * Admin can delete any user (force delete - removes from DB completely)
  */
 router.delete("/users/:id", async (req, res, next) => {
   try {
@@ -663,64 +663,44 @@ router.delete("/users/:id", async (req, res, next) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Check if user has critical associations
-    const [
-      hasComplaints,
-      hasPayments,
-      hasInvoices,
-      hasEvents,
-      hasAnnouncements,
-      hasFlatAssignments,
-      hasOwnerProperties,
-    ] = await Promise.all([
-      Complaint.exists({ userId: id }),
-      RentPayment.exists({ tenantId: id }),
-      MaintenancePayment.exists({ paidByUser: id }),
-      Event.exists({ createdBy: id }),
-      Announcement.exists({ createdBy: id }),
-      UserFlat.exists({ userId: id }),
-      user.ownerProperties && user.ownerProperties.length > 0
-        ? Flat.countDocuments({ ownerId: id })
-        : Promise.resolve(0),
-    ]);
+    const userEmail = user.email;
 
-    // If user has critical data, deactivate instead of delete
-    if (
-      hasComplaints ||
-      hasPayments ||
-      hasInvoices ||
-      hasEvents ||
-      hasAnnouncements ||
-      hasFlatAssignments ||
-      hasOwnerProperties > 0
-    ) {
-      // Deactivate user instead of deleting
-      user.isActive = false;
-      await user.save();
-
-      console.log(
-        `[Admin] User ${user.email} deactivated (has associated data) by admin ${req.user.email}`
-      );
-
-      return res.json({
-        success: true,
-        message:
-          "User has associated data. Account has been deactivated instead of deleted.",
-        user: sanitizeUser(user),
-        deactivated: true,
-      });
+    // Admin has full control - delete user completely from database
+    // This allows email to be reused for new users
+    
+    // Clean up related associations before deleting
+    try {
+      // Remove user from flat assignments
+      await UserFlat.deleteMany({ userId: id });
+      
+      // Remove owner properties association
+      if (user.ownerProperties && user.ownerProperties.length > 0) {
+        await Flat.updateMany(
+          { ownerId: id },
+          { $unset: { ownerId: "" } }
+        );
+      }
+      
+      // Note: We keep complaints, payments, events, announcements for historical records
+      // but remove the user reference where possible
+      // For complaints, we can set userId to null or keep it for audit trail
+      // For payments, we keep them for financial records
+      
+    } catch (cleanupError) {
+      console.warn(`[Admin] Error during user cleanup: ${cleanupError.message}`);
+      // Continue with deletion even if cleanup fails
     }
 
-    // Safe to delete - no critical associations
+    // Delete user from database
     await User.findByIdAndDelete(id);
 
     console.log(
-      `[Admin] User ${user.email} deleted by admin ${req.user.email}`
+      `[Admin] User ${userEmail} permanently deleted by admin ${req.user.email}`
     );
 
     res.json({
       success: true,
-      message: "User deleted successfully",
+      message: "User permanently deleted from database. Email can now be reused.",
       deleted: true,
     });
   } catch (error) {

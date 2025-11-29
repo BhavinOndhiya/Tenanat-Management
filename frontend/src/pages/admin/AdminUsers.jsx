@@ -171,7 +171,7 @@ function AdminUsers() {
   const handleDeleteUser = async (userId) => {
     if (
       !confirm(
-        "Are you sure you want to delete this user? This action cannot be undone."
+        "Are you sure you want to permanently delete this user? This action cannot be undone and the user will be removed from the database. The email can be reused for new users."
       )
     ) {
       return;
@@ -180,11 +180,9 @@ function AdminUsers() {
     setDeletingUserId(userId);
     try {
       const result = await api.deleteAdminUser(userId);
-      if (result.deactivated) {
-        showToast.success("User has been deactivated (has associated data)");
-      } else {
-        showToast.success("User deleted successfully");
-      }
+      showToast.success(
+        result.message || "User permanently deleted from database"
+      );
       fetchUsers();
     } catch (error) {
       showToast.error(error.message || "Unable to delete user");
