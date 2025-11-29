@@ -41,6 +41,8 @@ import PgProperties from "./pages/owner/PgProperties";
 import PgOwnerPayments from "./pages/owner/PgOwnerPayments";
 import PgTenantPayments from "./pages/PgTenantPayments";
 import TenantOnboarding from "./pages/TenantOnboarding";
+import Documents from "./pages/Documents";
+import OwnerDocuments from "./pages/owner/OwnerDocuments";
 import Navbar from "./components/Navbar";
 import Loader from "./components/ui/Loader";
 import { getDefaultRouteForRole } from "./utils/roles";
@@ -366,6 +368,22 @@ function App() {
             element={
               <RoleRoute roles={["PG_TENANT"]}>
                 <TenantOnboarding />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/documents"
+            element={
+              <RoleRoute roles={["PG_TENANT"]}>
+                <Documents />
+              </RoleRoute>
+            }
+          />
+          <Route
+            path="/owner/documents"
+            element={
+              <RoleRoute roles={["PG_OWNER"]}>
+                <OwnerDocuments />
               </RoleRoute>
             }
           />

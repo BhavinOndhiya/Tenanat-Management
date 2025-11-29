@@ -95,6 +95,11 @@ function Navbar() {
           label: "PG Payments",
           to: "/owner/pg-payments",
         },
+        {
+          key: "OWNER_PG_DOCUMENTS",
+          label: "Documents",
+          to: "/owner/documents",
+        },
       ].filter((link) => hasAccess(link.key));
     }
     return [];
@@ -107,6 +112,11 @@ function Navbar() {
           key: "PG_TENANT_PAYMENTS",
           label: "Payment History",
           to: "/pg-tenant/payments",
+        },
+        {
+          key: "PG_TENANT_DOCUMENTS",
+          label: "Documents",
+          to: "/documents",
         },
       ].filter((link) => hasAccess(link.key));
     }

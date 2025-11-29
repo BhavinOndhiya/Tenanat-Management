@@ -87,6 +87,14 @@ export const NAV_ITEMS_CONFIG = {
     label: "Payment History",
     path: "/pg-tenant/payments",
   },
+  PG_TENANT_DOCUMENTS: {
+    label: "Documents",
+    path: "/documents",
+  },
+  OWNER_PG_DOCUMENTS: {
+    label: "Documents",
+    path: "/owner/documents",
+  },
 };
 
 export const NAV_KEYS = Object.keys(NAV_ITEMS_CONFIG);

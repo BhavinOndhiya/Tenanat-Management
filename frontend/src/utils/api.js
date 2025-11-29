@@ -374,6 +374,70 @@ export const api = {
     });
   },
 
+  // Documents
+  async getMyDocuments() {
+    return this.request("/documents/my-documents");
+  },
+
+  async downloadDocument(type) {
+    // type: 'ekyc' or 'agreement'
+    const response = await fetch(`${API_BASE_URL}/documents/download/${type}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to download document");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = type === "ekyc" ? "eKYC-Document.pdf" : "PG-Agreement.pdf";
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  async getTenantDocuments(tenantId) {
+    return this.request(
+      `/documents/tenant-documents${tenantId ? `?tenantId=${tenantId}` : ""}`
+    );
+  },
+
+  async downloadTenantDocument(tenantId, type) {
+    // type: 'ekyc' or 'agreement'
+    const response = await fetch(
+      `${API_BASE_URL}/documents/tenant/${tenantId}/download/${type}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to download document");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = type === "ekyc" ? "eKYC-Document.pdf" : "PG-Agreement.pdf";
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
   // Admin flats
   async getAdminFlats(params) {
     return this.request(`/admin/flats${buildQuery(params)}`);

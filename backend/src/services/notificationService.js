@@ -1302,10 +1302,26 @@ export const sendOnboardingDocumentsEmail = async ({
   isOwner = false,
 }) => {
   if (!transporter) {
-    console.log(
-      "[EMAIL] Transporter not configured. Skipping onboarding documents email."
+    console.error(
+      "[EMAIL] ❌ Transporter not configured. Cannot send onboarding documents email."
     );
-    return;
+    console.error("[EMAIL] SMTP configuration check:", {
+      SMTP_HOST: SMTP_HOST ? `✅ Set (${SMTP_HOST})` : "❌ Missing",
+      SMTP_PORT: SMTP_PORT ? `✅ Set (${SMTP_PORT})` : "❌ Missing",
+      SMTP_USER: SMTP_USER ? `✅ Set (${SMTP_USER})` : "❌ Missing",
+      SMTP_PASS: hasValidPassword ? "✅ Set (hidden)" : "❌ Missing or invalid",
+      SMTP_FROM: SMTP_FROM ? `✅ Set (${SMTP_FROM})` : "❌ Missing",
+      EMAIL_FROM_EMAIL: EMAIL_FROM_EMAIL
+        ? `✅ Set (${EMAIL_FROM_EMAIL})`
+        : "❌ Missing",
+      EMAIL_FROM_NAME: EMAIL_FROM_NAME
+        ? `✅ Set (${EMAIL_FROM_NAME})`
+        : "❌ Missing",
+      fromEmail: fromEmail,
+    });
+    throw new Error(
+      "SMTP email service is not configured. Please configure SMTP_HOST, SMTP_USER, and SMTP_PASS environment variables."
+    );
   }
 
   try {
@@ -1318,23 +1334,67 @@ export const sendOnboardingDocumentsEmail = async ({
 
     const attachments = [];
 
-    // Add eKYC document
-    if (ekycPdfPath && fs.existsSync(ekycPdfPath)) {
-      attachments.push({
-        filename: `eKYC-${tenantName.replace(/\s+/g, "-")}.pdf`,
-        path: ekycPdfPath,
-        contentType: "application/pdf",
-      });
+    // Add eKYC document - read file into memory for Lambda compatibility
+    if (ekycPdfPath) {
+      if (fs.existsSync(ekycPdfPath)) {
+        console.log(`[EMAIL] Reading eKYC PDF from: ${ekycPdfPath}`);
+        try {
+          const fileContent = fs.readFileSync(ekycPdfPath);
+          attachments.push({
+            filename: `eKYC-${tenantName.replace(/\s+/g, "-")}.pdf`,
+            content: fileContent,
+            contentType: "application/pdf",
+          });
+          console.log(
+            `[EMAIL] ✅ eKYC PDF added to attachments (${fileContent.length} bytes)`
+          );
+        } catch (readError) {
+          console.error(
+            `[EMAIL] ❌ Failed to read eKYC PDF: ${readError.message}`
+          );
+          throw new Error(`Failed to read eKYC PDF: ${readError.message}`);
+        }
+      } else {
+        console.warn(`[EMAIL] ⚠️ eKYC PDF not found at path: ${ekycPdfPath}`);
+      }
     }
 
-    // Add Agreement document
-    if (agreementPdfPath && fs.existsSync(agreementPdfPath)) {
-      attachments.push({
-        filename: `PG-Agreement-${tenantName.replace(/\s+/g, "-")}.pdf`,
-        path: agreementPdfPath,
-        contentType: "application/pdf",
-      });
+    // Add Agreement document - read file into memory for Lambda compatibility
+    if (agreementPdfPath) {
+      if (fs.existsSync(agreementPdfPath)) {
+        console.log(`[EMAIL] Reading Agreement PDF from: ${agreementPdfPath}`);
+        try {
+          const fileContent = fs.readFileSync(agreementPdfPath);
+          attachments.push({
+            filename: `PG-Agreement-${tenantName.replace(/\s+/g, "-")}.pdf`,
+            content: fileContent,
+            contentType: "application/pdf",
+          });
+          console.log(
+            `[EMAIL] ✅ Agreement PDF added to attachments (${fileContent.length} bytes)`
+          );
+        } catch (readError) {
+          console.error(
+            `[EMAIL] ❌ Failed to read Agreement PDF: ${readError.message}`
+          );
+          throw new Error(`Failed to read Agreement PDF: ${readError.message}`);
+        }
+      } else {
+        console.warn(
+          `[EMAIL] ⚠️ Agreement PDF not found at path: ${agreementPdfPath}`
+        );
+      }
     }
+
+    if (attachments.length === 0) {
+      throw new Error(
+        "No PDF attachments found. Cannot send email without documents."
+      );
+    }
+
+    console.log(
+      `[EMAIL] Sending email to ${recipientEmail} with ${attachments.length} attachment(s)`
+    );
 
     const info = await transporter.sendMail({
       from: fromEmail,
@@ -1349,11 +1409,15 @@ export const sendOnboardingDocumentsEmail = async ({
     console.log(
       `[EMAIL] ✅ Onboarding documents email sent to ${recipientEmail}. ID: ${info.messageId}`
     );
+    return true;
   } catch (error) {
     console.error(
       "[EMAIL] ❌ Failed to send onboarding documents email:",
       error.message
     );
+    console.error("[EMAIL] Error stack:", error.stack);
+    console.error("[EMAIL] Error code:", error.code);
+    console.error("[EMAIL] Error response:", error.response);
     throw error;
   }
 };

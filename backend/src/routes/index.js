@@ -14,6 +14,7 @@ import ownerRoutes from "./owner.js";
 import pgTenantRoutes from "./pgTenant.js";
 import tenantOnboardingRoutes from "./tenantOnboarding.js";
 import testEmailRoutes from "./testEmail.js";
+import documentsRoutes from "./documents.js";
 import { authenticateToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import { getNavForRole } from "../utils/roleAccess.js";
@@ -77,6 +78,7 @@ router.use("/dashboard", dashboardRoutes);
 router.use("/owner", ownerRoutes);
 router.use("/pg-tenant", pgTenantRoutes);
 router.use("/tenant", tenantOnboardingRoutes);
+router.use("/documents", documentsRoutes);
 router.use("/test-email", testEmailRoutes);
 
 export default router;

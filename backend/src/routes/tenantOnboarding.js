@@ -675,24 +675,34 @@ async function generateAndSendDocuments(tenantId) {
     );
 
     // Generate eKYC document
+    console.log("[Documents] Starting eKYC document generation...");
     const ekycPdfPath = await generateEKycDocument({
       user,
       kycData,
     });
+    console.log(`[Documents] eKYC PDF generated at: ${ekycPdfPath}`);
 
     // Generate PG Agreement document
+    console.log("[Documents] Starting Agreement document generation...");
     const agreementPdfPath = await generatePgAgreementDocument({
       user,
       property,
       owner,
       profile,
     });
+    console.log(`[Documents] Agreement PDF generated at: ${agreementPdfPath}`);
 
     // Verify PDFs exist before proceeding
     if (!fs.existsSync(ekycPdfPath)) {
+      console.error(
+        `[Documents] ❌ eKYC PDF not found at path: ${ekycPdfPath}`
+      );
       throw new Error(`eKYC PDF not found at path: ${ekycPdfPath}`);
     }
     if (!fs.existsSync(agreementPdfPath)) {
+      console.error(
+        `[Documents] ❌ Agreement PDF not found at path: ${agreementPdfPath}`
+      );
       throw new Error(`Agreement PDF not found at path: ${agreementPdfPath}`);
     }
 
@@ -748,13 +758,13 @@ async function generateAndSendDocuments(tenantId) {
       });
       console.log(`[Documents] ✅ Email sent to tenant: ${user.email}`);
       tenantEmailSent = true;
-    } catch (emailError) {
+    } catch (tenantEmailError) {
       console.error(
         `[Documents] ❌ Failed to send email to tenant ${user.email}:`,
-        emailError.message
+        tenantEmailError.message
       );
-      console.error("[Documents] Error stack:", emailError.stack);
-      emailError = emailError.message;
+      console.error("[Documents] Error stack:", tenantEmailError.stack);
+      emailError = tenantEmailError.message;
     }
 
     // Send to owner
