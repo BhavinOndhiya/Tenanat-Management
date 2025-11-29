@@ -9,8 +9,10 @@ import Loader from "../components/ui/Loader";
 function Documents() {
   const { user } = useAuth();
   const [documents, setDocuments] = useState([]);
+  const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(null);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     fetchDocuments();
@@ -21,6 +23,7 @@ function Documents() {
       setLoading(true);
       const data = await api.getMyDocuments();
       setDocuments(data.documents || []);
+      setUserInfo(data.user);
     } catch (error) {
       showToast.error(error.message || "Failed to load documents");
     } finally {
@@ -37,6 +40,47 @@ function Documents() {
       showToast.error(error.message || "Failed to download document");
     } finally {
       setDownloading(null);
+    }
+  };
+
+  const handleGenerateDocuments = async () => {
+    if (
+      !window.confirm(
+        "Generate and send documents? This will create your eKYC and PG Agreement PDFs and email them to you and your PG owner."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      const result = await api.generateDocuments();
+      showToast.success(result.message || "Documents generated successfully!");
+
+      if (result.emailStatus) {
+        if (result.emailStatus.sent) {
+          showToast.success(
+            "Documents sent via email to you and your PG owner"
+          );
+        } else if (result.emailStatus.configured) {
+          showToast.warning(
+            `Documents generated but email sending had issues: ${
+              result.emailStatus.error || "Unknown error"
+            }`
+          );
+        } else {
+          showToast.info(
+            "Documents generated but email is not configured. You can download them below."
+          );
+        }
+      }
+
+      // Refresh documents list
+      await fetchDocuments();
+    } catch (error) {
+      showToast.error(error.message || "Failed to generate documents");
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -65,10 +109,29 @@ function Documents() {
             <p className="text-[var(--color-text-secondary)] mb-4">
               No documents available yet.
             </p>
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              Documents will be available after completing the onboarding
-              process.
-            </p>
+            {userInfo?.onboardingStatus === "completed" ? (
+              <div>
+                <p className="text-sm text-[var(--color-text-secondary)] mb-6">
+                  You have completed onboarding. Generate your documents now to
+                  receive your eKYC and PG Agreement PDFs via email.
+                </p>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  loading={generating}
+                  onClick={handleGenerateDocuments}
+                >
+                  {generating
+                    ? "Generating Documents..."
+                    : "Generate Documents"}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Documents will be available after completing the onboarding
+                process.
+              </p>
+            )}
           </div>
         </Card>
       ) : (

@@ -5,6 +5,14 @@ import { authenticateToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import PgTenantProfile from "../models/PgTenantProfile.js";
 import Flat from "../models/Flat.js";
+import {
+  generateEKycDocument,
+  generatePgAgreementDocument,
+} from "../services/documentService.js";
+import {
+  sendOnboardingDocumentsEmail,
+  isEmailConfigured,
+} from "../services/notificationService.js";
 
 const router = express.Router();
 
@@ -381,6 +389,240 @@ router.get("/tenant/:tenantId/download/:type", async (req, res, next) => {
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.send(pdfBuffer);
   } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/documents/generate
+ * Generate documents for current user (for PG_TENANT who completed onboarding)
+ */
+router.post("/generate", async (req, res, next) => {
+  try {
+    if (req.user.role !== "PG_TENANT") {
+      return res.status(403).json({
+        error: "Access denied. PG_TENANT role required.",
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if onboarding is completed
+    if (user.onboardingStatus !== "completed") {
+      return res.status(400).json({
+        error: "Onboarding must be completed before generating documents.",
+      });
+    }
+
+    // Check if documents already exist
+    if (
+      user.documentsGenerated &&
+      (user.ekycDocumentBase64 || user.agreementDocumentBase64)
+    ) {
+      return res.status(400).json({
+        error:
+          "Documents already generated. Use the download option to access them.",
+      });
+    }
+
+    // Get tenant profile and property
+    const profile = await PgTenantProfile.findOne({ userId: req.user.id })
+      .populate("propertyId")
+      .populate({
+        path: "propertyId",
+        populate: { path: "ownerId", select: "name email phone" },
+      })
+      .lean();
+
+    if (!profile || !profile.propertyId) {
+      return res.status(404).json({
+        error:
+          "Tenant profile or property not found. Please contact your PG owner.",
+      });
+    }
+
+    const property = profile.propertyId;
+    const owner = property.ownerId;
+
+    if (!owner) {
+      return res.status(404).json({
+        error: "Property owner not found.",
+      });
+    }
+
+    // Get KYC data from user
+    const kycData = user.kycData || {
+      fullName: user.name,
+      dateOfBirth: user.personalDetails?.dateOfBirth,
+      gender: user.personalDetails?.gender,
+      fatherMotherName: "",
+      phone: user.phone,
+      email: user.email,
+      permanentAddress: user.address?.street || "",
+      occupation: user.personalDetails?.occupation || "",
+      companyCollegeName: "",
+      idType: "AADHAAR",
+      idNumber: "",
+    };
+
+    console.log(
+      `[Documents] Regenerating PDFs for tenant ${user.email} (${user.name})`
+    );
+
+    // Generate eKYC document
+    console.log("[Documents] Starting eKYC document generation...");
+    const ekycPdfPath = await generateEKycDocument({
+      user,
+      kycData,
+    });
+    console.log(`[Documents] eKYC PDF generated at: ${ekycPdfPath}`);
+
+    // Generate PG Agreement document
+    console.log("[Documents] Starting Agreement document generation...");
+    const agreementPdfPath = await generatePgAgreementDocument({
+      user,
+      property,
+      owner,
+      profile,
+    });
+    console.log(`[Documents] Agreement PDF generated at: ${agreementPdfPath}`);
+
+    // Verify PDFs exist before proceeding
+    if (!fs.existsSync(ekycPdfPath)) {
+      console.error(
+        `[Documents] ❌ eKYC PDF not found at path: ${ekycPdfPath}`
+      );
+      throw new Error(`eKYC PDF not found at path: ${ekycPdfPath}`);
+    }
+    if (!fs.existsSync(agreementPdfPath)) {
+      console.error(
+        `[Documents] ❌ Agreement PDF not found at path: ${agreementPdfPath}`
+      );
+      throw new Error(`Agreement PDF not found at path: ${agreementPdfPath}`);
+    }
+
+    // Read PDFs into memory and store as base64
+    console.log("[Documents] Reading PDFs into memory for storage...");
+    const ekycPdfBuffer = fs.readFileSync(ekycPdfPath);
+    const agreementPdfBuffer = fs.readFileSync(agreementPdfPath);
+
+    const ekycBase64 = ekycPdfBuffer.toString("base64");
+    const agreementBase64 = agreementPdfBuffer.toString("base64");
+
+    // Update user with document paths AND base64 content
+    user.ekycDocumentPath = ekycPdfPath;
+    user.agreementDocumentPath = agreementPdfPath;
+    user.ekycDocumentBase64 = ekycBase64;
+    user.agreementDocumentBase64 = agreementBase64;
+    user.documentsGenerated = true;
+    user.documentsGeneratedAt = new Date();
+    await user.save();
+
+    console.log(
+      `[Documents] PDFs stored in database: eKYC=${ekycBase64.length} bytes, Agreement=${agreementBase64.length} bytes`
+    );
+
+    // Check if email is configured
+    const emailConfigured = isEmailConfigured();
+    let emailStatus = {
+      sent: false,
+      configured: emailConfigured,
+      error: null,
+    };
+
+    if (emailConfigured) {
+      // Send emails to both owner and tenant
+      const propertyName =
+        property.name || property.buildingName || "PG Property";
+
+      let tenantEmailSent = false;
+      let ownerEmailSent = false;
+      let emailError = null;
+
+      // Send to tenant
+      console.log(
+        `[Documents] Attempting to send email to tenant: ${user.email}`
+      );
+      try {
+        await sendOnboardingDocumentsEmail({
+          recipientEmail: user.email,
+          recipientName: user.name,
+          tenantName: user.name,
+          propertyName,
+          ekycPdfPath,
+          agreementPdfPath,
+          ekycPdfBuffer,
+          agreementPdfBuffer,
+          isOwner: false,
+        });
+        console.log(`[Documents] ✅ Email sent to tenant: ${user.email}`);
+        tenantEmailSent = true;
+      } catch (tenantEmailError) {
+        console.error(
+          `[Documents] ❌ Failed to send email to tenant ${user.email}:`,
+          tenantEmailError.message
+        );
+        emailError = tenantEmailError.message;
+      }
+
+      // Send to owner
+      console.log(
+        `[Documents] Attempting to send email to owner: ${owner.email}`
+      );
+      try {
+        await sendOnboardingDocumentsEmail({
+          recipientEmail: owner.email,
+          recipientName: owner.name,
+          tenantName: user.name,
+          propertyName,
+          ekycPdfPath,
+          agreementPdfPath,
+          ekycPdfBuffer,
+          agreementPdfBuffer,
+          isOwner: true,
+        });
+        console.log(`[Documents] ✅ Email sent to owner: ${owner.email}`);
+        ownerEmailSent = true;
+      } catch (ownerEmailError) {
+        console.error(
+          `[Documents] ❌ Failed to send email to owner ${owner.email}:`,
+          ownerEmailError.message
+        );
+        if (!emailError) {
+          emailError = ownerEmailError.message;
+        } else {
+          emailError += `; Owner email failed: ${ownerEmailError.message}`;
+        }
+      }
+
+      emailStatus = {
+        sent: tenantEmailSent && ownerEmailSent,
+        configured: true,
+        tenantEmailSent,
+        ownerEmailSent,
+        error: emailError,
+      };
+    } else {
+      emailStatus.error = "Email not configured. SMTP settings missing.";
+    }
+
+    res.json({
+      success: true,
+      message: "Documents generated successfully!",
+      emailStatus: {
+        ...emailStatus,
+        message: emailStatus.configured
+          ? emailStatus.sent
+            ? "Documents sent successfully via email"
+            : `Email partially sent. ${emailStatus.error || "Unknown error"}`
+          : "Email not configured. Documents generated but not sent.",
+      },
+    });
+  } catch (error) {
+    console.error("[Documents] Error generating documents:", error);
     next(error);
   }
 });

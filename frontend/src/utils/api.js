@@ -762,4 +762,11 @@ export const api = {
   async getPgTenantProfile() {
     return this.request(`/pg-tenant/profile`);
   },
+
+  // Documents
+  async generateDocuments() {
+    return this.request("/documents/generate", {
+      method: "POST",
+    });
+  },
 };
