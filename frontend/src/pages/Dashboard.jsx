@@ -449,28 +449,28 @@ function Dashboard() {
             </div>
           )}
         </Card>
-      </div>
 
-      {user?.role === "PG_TENANT" && (
-        <ScrollAnimation delay={0.1}>
-          <div className="space-y-4">
-            <RentPaymentCard />
-            <Card padding="md">
-              <div className="flex items-center justify-between">
-                <p className="text-[var(--color-text-secondary)]">
-                  View all your payment history and invoices
-                </p>
-                <Link
-                  to="/pg-tenant/payments"
-                  className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
-                >
-                  View Payment History
-                </Link>
-              </div>
-            </Card>
-          </div>
-        </ScrollAnimation>
-      )}
+        {user?.role === "PG_TENANT" && (
+          <ScrollAnimation delay={0.1}>
+            <div className="space-y-4">
+              <RentPaymentCard />
+              <Card padding="md">
+                <div className="flex items-center justify-between">
+                  <p className="text-[var(--color-text-secondary)]">
+                    View all your payment history and invoices
+                  </p>
+                  <Link
+                    to="/pg-tenant/payments"
+                    className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
+                  >
+                    View Payment History
+                  </Link>
+                </div>
+              </Card>
+            </div>
+          </ScrollAnimation>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <ScrollAnimation delay={0.2}>
