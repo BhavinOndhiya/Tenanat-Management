@@ -20,6 +20,59 @@ const router = express.Router();
 router.use(authenticateToken);
 
 /**
+ * GET /api/documents/generate-images-pdf
+ * Generate a PDF with uploaded KYC images (for viewing in profile)
+ */
+router.get("/generate-images-pdf", async (req, res, next) => {
+  try {
+    if (req.user.role !== "PG_TENANT") {
+      return res.status(403).json({
+        error: "Access denied. PG_TENANT role required.",
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if images exist
+    if (
+      !user.kycImages?.idFrontBase64 &&
+      !user.kycImages?.idBackBase64 &&
+      !user.kycImages?.selfieBase64
+    ) {
+      return res.status(404).json({
+        error: "No uploaded images found. Please complete onboarding first.",
+      });
+    }
+
+    // Generate reference document PDF on the fly
+    const { generateReferenceDocument } = await import(
+      "../services/documentService.js"
+    );
+    const referencePdfPath = await generateReferenceDocument({ user });
+
+    if (!fs.existsSync(referencePdfPath)) {
+      return res.status(500).json({
+        error: "Failed to generate PDF. Please try again.",
+      });
+    }
+
+    // Read PDF and send
+    const pdfBuffer = fs.readFileSync(referencePdfPath);
+    const fileName = `KYC-Images-${user.name.replace(/\s+/g, "-")}.pdf`;
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("[Documents] Error generating images PDF:", error);
+    next(error);
+  }
+});
+
+/**
  * GET /api/documents/my-documents
  * Get current user's documents (for PG_TENANT)
  */

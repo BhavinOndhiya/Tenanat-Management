@@ -23,6 +23,8 @@ function Profile() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [showCompleteOnboardingModal, setShowCompleteOnboardingModal] =
     useState(false);
+  const [showImagesPdfViewer, setShowImagesPdfViewer] = useState(false);
+  const [imagesPdfUrl, setImagesPdfUrl] = useState(null);
   const [profileData, setProfileData] = useState({
     name: user?.name || "",
     phone: "",
@@ -1127,22 +1129,39 @@ function Profile() {
                       className="w-full"
                       onClick={async () => {
                         try {
-                          // Check if reference document exists, if not, navigate to documents page
-                          const documents = await api.getMyDocuments();
-                          const hasReference = documents.documents?.some(
-                            (doc) => doc.type === "reference"
+                          // Generate PDF on the fly and display inline
+                          const API_BASE_URL =
+                            import.meta.env.VITE_BACKEND_BASE_URL?.replace(
+                              /\/$/,
+                              ""
+                            ) || "/api";
+                          const response = await fetch(
+                            `${API_BASE_URL}/documents/generate-images-pdf`,
+                            {
+                              method: "GET",
+                              headers: {
+                                Authorization: `Bearer ${localStorage.getItem(
+                                  "token"
+                                )}`,
+                              },
+                            }
                           );
-                          if (hasReference) {
-                            api.viewDocument("reference");
-                          } else {
-                            showToast.info(
-                              "Reference document not yet generated. Please complete onboarding first."
+
+                          if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(
+                              error.error || "Failed to generate PDF"
                             );
-                            navigate("/documents");
                           }
+
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          setImagesPdfUrl(url);
+                          setShowImagesPdfViewer(true);
                         } catch (error) {
                           showToast.error(
-                            "Failed to view reference document. Please try from Documents page."
+                            error.message ||
+                              "Failed to generate PDF. Please try again."
                           );
                         }
                       }}
@@ -1196,6 +1215,65 @@ function Profile() {
           Would you like to proceed to the onboarding page?
         </p>
       </Modal>
+
+      {/* Images PDF Viewer Modal */}
+      {showImagesPdfViewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-[var(--color-bg-primary)] rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-[var(--color-border)]"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
+              <h3 className="text-xl font-semibold text-[var(--color-text-primary)]">
+                KYC Images - All Documents
+              </h3>
+              <button
+                onClick={() => {
+                  setShowImagesPdfViewer(false);
+                  if (imagesPdfUrl) {
+                    window.URL.revokeObjectURL(imagesPdfUrl);
+                    setImagesPdfUrl(null);
+                  }
+                }}
+                className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* PDF Viewer */}
+            <div className="flex-1 overflow-hidden p-4">
+              {imagesPdfUrl ? (
+                <iframe
+                  src={imagesPdfUrl}
+                  className="w-full h-full border border-[var(--color-border)] rounded-lg"
+                  style={{ minHeight: "600px", height: "calc(90vh - 120px)" }}
+                  title="KYC Images PDF"
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <Loader size="lg" />
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Marital Status & Family Details */}
       <ScrollAnimation delay={0.5}>
