@@ -343,6 +343,37 @@ export const api = {
     });
   },
 
+  async getAdminUser(userId) {
+    return this.request(`/admin/users/${userId}`);
+  },
+
+  async updateAdminUserPassword(userId, password) {
+    return this.request(`/admin/users/${userId}/password`, {
+      method: "PATCH",
+      body: { password },
+    });
+  },
+
+  async updateAdminUser(userId, userData) {
+    return this.request(`/admin/users/${userId}`, {
+      method: "PUT",
+      body: userData,
+    });
+  },
+
+  async patchAdminUser(userId, userData) {
+    return this.request(`/admin/users/${userId}`, {
+      method: "PATCH",
+      body: userData,
+    });
+  },
+
+  async deleteAdminUser(userId) {
+    return this.request(`/admin/users/${userId}`, {
+      method: "DELETE",
+    });
+  },
+
   // Admin flats
   async getAdminFlats(params) {
     return this.request(`/admin/flats${buildQuery(params)}`);

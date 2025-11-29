@@ -127,6 +127,10 @@ const userSchema = new mongoose.Schema(
     },
     // Tenant onboarding status
     // State machine: "invited" → "kyc_pending" → "kyc_verified" → "completed"
+    // - "invited": Owner has added tenant, password setup email sent
+    // - "kyc_pending": Tenant has set password, needs to complete eKYC
+    // - "kyc_verified": eKYC completed, needs to accept agreement
+    // - "completed": Full onboarding complete, can access dashboard
     onboardingStatus: {
       type: String,
       enum: ["invited", "kyc_pending", "kyc_verified", "completed"],
@@ -144,6 +148,32 @@ const userSchema = new mongoose.Schema(
     },
     kycVerifiedAt: {
       type: Date,
+    },
+    // Store KYC form data for document generation
+    kycData: {
+      type: {
+        fullName: String,
+        dateOfBirth: Date,
+        gender: String,
+        fatherMotherName: String,
+        phone: String,
+        email: String,
+        permanentAddress: String,
+        occupation: String,
+        companyCollegeName: String,
+        idType: String,
+        idNumber: String,
+      },
+      default: null,
+    },
+    // Document file paths
+    ekycDocumentPath: {
+      type: String,
+      trim: true,
+    },
+    agreementDocumentPath: {
+      type: String,
+      trim: true,
     },
     // Agreement acceptance details
     agreementAccepted: {

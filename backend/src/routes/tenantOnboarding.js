@@ -4,6 +4,11 @@ import { authenticateToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import Flat from "../models/Flat.js";
 import PgTenantProfile from "../models/PgTenantProfile.js";
+import {
+  generateEKycDocument,
+  generatePgAgreementDocument,
+} from "../services/documentService.js";
+import { sendOnboardingDocumentsEmail } from "../services/notificationService.js";
 
 const router = express.Router();
 
@@ -161,6 +166,17 @@ router.post(
       const idBackFile = req.files?.idBack?.[0];
       const selfieFile = req.files?.selfie?.[0];
 
+      // TODO: INTEGRATE REAL KYC PROVIDER HERE
+      // Replace this mock implementation with actual KYC provider API calls:
+      // 1. Upload files to KYC provider (e.g., Digio, Signzy, eMudhra, etc.)
+      // 2. Submit form data + file references to KYC API
+      // 3. Handle async webhook responses for verification status
+      // 4. Store actual transaction ID and verification results
+      // Example:
+      // const kycResult = await kycProvider.verify({
+      //   idType, idNumber, idFrontFile, idBackFile, selfieFile,
+      //   personalDetails: { fullName, dateOfBirth, gender, ... }
+      // });
       // Mock KYC verification delay (simulate API call)
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
@@ -194,6 +210,21 @@ router.post(
       if (phone) user.phone = phone.trim();
       if (occupation)
         user.personalDetails = { ...user.personalDetails, occupation };
+
+      // Store KYC data for document generation
+      user.kycData = {
+        fullName: fullName.trim(),
+        dateOfBirth: new Date(dateOfBirth),
+        gender,
+        fatherMotherName: fatherMotherName?.trim() || "",
+        phone: phone?.trim() || user.phone || "",
+        email: email?.trim() || user.email || "",
+        permanentAddress: permanentAddress.trim(),
+        occupation: occupation?.trim() || "",
+        companyCollegeName: companyCollegeName?.trim() || "",
+        idType,
+        idNumber: idNumber.trim(),
+      };
 
       await user.save();
 
@@ -503,8 +534,22 @@ router.post("/agreement/accept", async (req, res, next) => {
       }
     }
 
+    // TODO: INTEGRATE REAL SMS OTP PROVIDER HERE
+    // Replace this mock implementation with actual OTP validation:
+    // 1. Generate and send OTP via SMS provider (e.g., Twilio, AWS SNS, MSG91, etc.)
+    //    - Store OTP in database/cache with expiration (e.g., 5 minutes)
+    //    - Send OTP to user.phone via SMS API
+    // 2. Validate OTP on agreement acceptance:
+    //    - Check if OTP matches stored value
+    //    - Verify OTP hasn't expired
+    //    - Mark OTP as used (one-time use)
+    // Example:
+    // const storedOtp = await OtpCache.findOne({ userId: tenantId, type: 'agreement' });
+    // if (!storedOtp || storedOtp.code !== otp || storedOtp.expiresAt < new Date()) {
+    //   return res.status(400).json({ error: "Invalid or expired OTP" });
+    // }
+    // await storedOtp.deleteOne();
     // Mock OTP validation (accept any OTP for now, or "123456" as test)
-    // TODO: Replace with real SMS OTP validation
     const validOtp = otp === "123456" || otp?.length >= 4; // Accept any 4+ digit OTP for mock
     if (!otp || !validOtp) {
       return res.status(400).json({
@@ -524,14 +569,137 @@ router.post("/agreement/accept", async (req, res, next) => {
       `[Agreement] Agreement accepted by tenant ${user.email}, OTP ref: ${user.agreementOtpRef}`
     );
 
+    // Generate PDFs and send emails (async, don't wait)
+    generateAndSendDocuments(user._id.toString()).catch((error) => {
+      console.error(
+        "[Agreement] Error generating/sending documents:",
+        error.message
+      );
+      // Don't fail the request if document generation fails
+    });
+
     res.json({
       success: true,
-      message: "Agreement accepted successfully. Onboarding complete!",
+      message:
+        "Agreement accepted successfully. Onboarding complete! Documents will be sent via email.",
       onboardingStatus: user.onboardingStatus,
     });
   } catch (error) {
     next(error);
   }
 });
+
+/**
+ * Generate eKYC and Agreement PDFs and send to owner and tenant
+ * This is called after agreement acceptance
+ */
+async function generateAndSendDocuments(tenantId) {
+  try {
+    // Get user with all related data
+    const user = await User.findById(tenantId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get tenant profile and property
+    const profile = await PgTenantProfile.findOne({ userId: tenantId })
+      .populate("propertyId")
+      .populate({
+        path: "propertyId",
+        populate: { path: "ownerId", select: "name email phone" },
+      })
+      .lean();
+
+    if (!profile || !profile.propertyId) {
+      throw new Error("Tenant profile or property not found");
+    }
+
+    const property = profile.propertyId;
+    const owner = property.ownerId;
+
+    if (!owner) {
+      throw new Error("Property owner not found");
+    }
+
+    // Get KYC data from user
+    const kycData = user.kycData || {
+      fullName: user.name,
+      dateOfBirth: user.personalDetails?.dateOfBirth,
+      gender: user.personalDetails?.gender,
+      fatherMotherName: "",
+      phone: user.phone,
+      email: user.email,
+      permanentAddress: user.address?.street || "",
+      occupation: user.personalDetails?.occupation || "",
+      companyCollegeName: "",
+      idType: "AADHAAR",
+      idNumber: "",
+    };
+
+    console.log(
+      `[Documents] Generating PDFs for tenant ${user.email} (${user.name})`
+    );
+
+    // Generate eKYC document
+    const ekycPdfPath = await generateEKycDocument({
+      user,
+      kycData,
+    });
+
+    // Generate PG Agreement document
+    const agreementPdfPath = await generatePgAgreementDocument({
+      user,
+      property,
+      owner,
+      profile,
+    });
+
+    // Update user with document paths
+    user.ekycDocumentPath = ekycPdfPath;
+    user.agreementDocumentPath = agreementPdfPath;
+    await user.save();
+
+    console.log(
+      `[Documents] PDFs generated: eKYC=${ekycPdfPath}, Agreement=${agreementPdfPath}`
+    );
+
+    // Send emails to both owner and tenant
+    const propertyName =
+      property.name || property.buildingName || "PG Property";
+
+    // Send to tenant
+    await sendOnboardingDocumentsEmail({
+      recipientEmail: user.email,
+      recipientName: user.name,
+      tenantName: user.name,
+      propertyName,
+      ekycPdfPath,
+      agreementPdfPath,
+      isOwner: false,
+    });
+
+    console.log(`[Documents] Email sent to tenant: ${user.email}`);
+
+    // Send to owner
+    await sendOnboardingDocumentsEmail({
+      recipientEmail: owner.email,
+      recipientName: owner.name,
+      tenantName: user.name,
+      propertyName,
+      ekycPdfPath,
+      agreementPdfPath,
+      isOwner: true,
+    });
+
+    console.log(`[Documents] Email sent to owner: ${owner.email}`);
+
+    console.log(
+      `[Documents] ✅ Successfully generated and sent documents for tenant ${user.email}`
+    );
+  } catch (error) {
+    console.error("[Documents] Error in generateAndSendDocuments:", error);
+    throw error;
+  }
+}
 
 export default router;

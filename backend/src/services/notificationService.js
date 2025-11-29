@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 // Ensure dotenv is loaded
@@ -1181,6 +1182,178 @@ export const sendPaymentReceiptToOwner = async (payload) => {
     );
     console.error("[EMAIL] Error stack:", error.stack);
     console.error("[EMAIL] Error code:", error.code);
+    throw error;
+  }
+};
+
+// ============ ONBOARDING DOCUMENTS EMAIL ============
+const buildOnboardingDocumentsEmail = ({
+  recipientName,
+  tenantName,
+  propertyName,
+  isOwner = false,
+}) => {
+  const content = `
+    <!-- Success Badge -->
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
+      <tr>
+        <td style="background-color: #dbeafe; padding: 8px 16px; border-radius: 20px; display: inline-block;">
+          <p style="margin: 0; font-size: 12px; font-weight: 600; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px;">
+            📄 Documents Generated
+          </p>
+        </td>
+      </tr>
+    </table>
+    
+    <!-- Heading -->
+    <h2 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #111827; line-height: 1.3;">
+      ${isOwner ? "Tenant Onboarding Complete" : "Your Onboarding is Complete!"}
+    </h2>
+    <p style="margin: 0 0 32px; font-size: 14px; color: #6b7280;">
+      ${
+        isOwner
+          ? `Tenant ${tenantName} has completed onboarding for ${propertyName}`
+          : "Your eKYC and PG Agreement documents are ready"
+      }
+    </p>
+    
+    <p style="margin: 0 0 24px; font-size: 15px; color: #374151; line-height: 1.6;">
+      Hi <strong style="color: #111827;">${recipientName}</strong>,
+    </p>
+    
+    <p style="margin: 0 0 32px; font-size: 14px; color: #4b5563; line-height: 1.7;">
+      ${
+        isOwner
+          ? `We're pleased to inform you that ${tenantName} has successfully completed the onboarding process for ${propertyName}. The tenant has completed eKYC verification and signed the PG rental agreement.`
+          : "Congratulations! You have successfully completed your onboarding process. Your eKYC verification document and signed PG rental agreement are attached to this email for your records."
+      }
+    </p>
+    
+    <!-- Documents Info -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px; background-color: #f9fafb; border-radius: 8px; border-left: 4px solid #6366f1; overflow: hidden;">
+      <tr>
+        <td style="padding: 24px;">
+          <p style="margin: 0 0 16px; font-size: 12px; font-weight: 600; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px;">
+            📋 Attached Documents
+          </p>
+          
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding: 8px 0;">
+                <p style="margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #111827;">
+                  1. eKYC Verification Document
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #6b7280; line-height: 1.5;">
+                  Contains verified personal details and identity information
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 16px 0 8px;">
+                <p style="margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #111827;">
+                  2. PG Rental Agreement
+                </p>
+                <p style="margin: 0; font-size: 12px; color: #6b7280; line-height: 1.5;">
+                  Digitally signed agreement with all terms and conditions
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+    
+    <p style="margin: 0 0 24px; font-size: 14px; color: #4b5563; line-height: 1.7;">
+      ${
+        isOwner
+          ? "Please keep these documents for your records. The tenant can now access their dashboard and make payments."
+          : "Please download and save these documents for your records. You can now access your dashboard and start using all features."
+      }
+    </p>
+    
+    <!-- CTA Button -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 32px 0;">
+      <tr>
+        <td align="center">
+          <a href="${
+            process.env.FRONTEND_URL || "https://tenanat-management.vercel.app"
+          }/dashboard" class="btn btn-primary" style="background-color: #6366f1; color: #ffffff !important; padding: 14px 32px; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 6px; display: inline-block;">
+            ${isOwner ? "View Dashboard" : "Go to Dashboard"}
+          </a>
+        </td>
+      </tr>
+    </table>
+    
+    <p style="margin: 32px 0 0; font-size: 12px; color: #9ca3af; line-height: 1.6;">
+      If you have any questions or need assistance, please contact our support team.
+    </p>
+  `;
+
+  return emailWrapper(content);
+};
+
+export const sendOnboardingDocumentsEmail = async ({
+  recipientEmail,
+  recipientName,
+  tenantName,
+  propertyName,
+  ekycPdfPath,
+  agreementPdfPath,
+  isOwner = false,
+}) => {
+  if (!transporter) {
+    console.log(
+      "[EMAIL] Transporter not configured. Skipping onboarding documents email."
+    );
+    return;
+  }
+
+  try {
+    const html = buildOnboardingDocumentsEmail({
+      recipientName,
+      tenantName,
+      propertyName,
+      isOwner,
+    });
+
+    const attachments = [];
+
+    // Add eKYC document
+    if (ekycPdfPath && fs.existsSync(ekycPdfPath)) {
+      attachments.push({
+        filename: `eKYC-${tenantName.replace(/\s+/g, "-")}.pdf`,
+        path: ekycPdfPath,
+        contentType: "application/pdf",
+      });
+    }
+
+    // Add Agreement document
+    if (agreementPdfPath && fs.existsSync(agreementPdfPath)) {
+      attachments.push({
+        filename: `PG-Agreement-${tenantName.replace(/\s+/g, "-")}.pdf`,
+        path: agreementPdfPath,
+        contentType: "application/pdf",
+      });
+    }
+
+    const info = await transporter.sendMail({
+      from: fromEmail,
+      to: recipientEmail,
+      subject: isOwner
+        ? `Tenant Onboarding Complete - ${tenantName} - ${propertyName}`
+        : `Your Onboarding Documents - ${propertyName}`,
+      html,
+      attachments,
+    });
+
+    console.log(
+      `[EMAIL] ✅ Onboarding documents email sent to ${recipientEmail}. ID: ${info.messageId}`
+    );
+  } catch (error) {
+    console.error(
+      "[EMAIL] ❌ Failed to send onboarding documents email:",
+      error.message
+    );
     throw error;
   }
 };

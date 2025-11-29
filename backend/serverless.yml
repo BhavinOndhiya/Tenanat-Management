@@ -36,6 +36,8 @@ provider:
         - X-Requested-With
         - Accept
         - Origin
+        - Access-Control-Request-Method
+        - Access-Control-Request-Headers
       allowedMethods:
         - GET
         - POST
@@ -43,6 +45,7 @@ provider:
         - DELETE
         - PATCH
         - OPTIONS
+        - HEAD
       allowCredentials: false
       maxAge: 86400
   iam:
@@ -65,6 +68,18 @@ functions:
       - httpApi:
           path: /
           method: ANY
+
+package:
+  individually: false
+  excludeDevDependencies: true
+  patterns:
+    - "!node_modules/.cache/**"
+    - "!node_modules/**/*.md"
+    - "!node_modules/**/*.test.js"
+    - "!node_modules/**/*.spec.js"
+    - "!**/*.md"
+    - "!**/*.test.js"
+    - "!**/*.spec.js"
 
 plugins:
   - serverless-dotenv-plugin

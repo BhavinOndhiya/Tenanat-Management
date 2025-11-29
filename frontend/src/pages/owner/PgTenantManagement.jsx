@@ -260,7 +260,7 @@ export default function PgTenantManagement() {
         setTempPasswordInfo(null);
       } else {
         const response = await api.createPgTenant(formData);
-        showToast.success("PG tenant created");
+        showToast.success("Tenant invited. Password setup email sent.");
         if (response.temporaryPassword) {
           setTempPasswordInfo({
             email: response.tenant?.email,

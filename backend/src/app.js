@@ -13,6 +13,42 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Handle OPTIONS requests FIRST - before ANY other middleware
+// This is critical for serverless environments where OPTIONS must return immediately
+// Must be before any route definitions or other middleware
+app.use((req, res, next) => {
+  // Handle OPTIONS requests immediately - don't let them go through any other middleware
+  if (req.method === "OPTIONS" || req.method === "options") {
+    console.log("[App] Handling OPTIONS request at Express level");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+    );
+    res.setHeader("Access-Control-Max-Age", "86400");
+    return res.status(200).send("");
+  }
+  next();
+});
+
+// Add CORS headers to all responses (for actual requests, not OPTIONS)
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+  );
+  next();
+});
+
 // CORS configuration - Allow all origins for serverless deployment
 const corsOptions = {
   origin: "*",
@@ -30,34 +66,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// Handle preflight OPTIONS requests explicitly (before any other middleware)
-app.options("*", (req, res) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With, Accept, Origin"
-  );
-  res.status(200).end();
-});
-
-// Also handle OPTIONS for /api routes specifically (before db connection middleware)
-app.options("/api/*", (req, res) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With, Accept, Origin"
-  );
-  res.status(200).end();
-});
 
 // Webhooks need raw body parsing before the global JSON parser
 app.use("/api/webhooks", webhookRoutes);

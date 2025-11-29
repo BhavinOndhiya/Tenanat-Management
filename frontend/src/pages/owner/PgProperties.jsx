@@ -21,6 +21,15 @@ const defaultFormData = {
   facilitiesAvailable: [],
   baseRentPerBed: "",
   notes: "",
+  // PG onboarding fields
+  defaultRent: "",
+  defaultDeposit: "",
+  dueDate: "1",
+  lastPenaltyFreeDate: "5",
+  lateFeePerDay: "50",
+  noticePeriodMonths: "1",
+  lockInMonths: "0",
+  houseRules: "",
 };
 
 export default function PgProperties() {
@@ -74,6 +83,15 @@ export default function PgProperties() {
       facilitiesAvailable: property.facilitiesAvailable || [],
       baseRentPerBed: property.baseRentPerBed || "",
       notes: property.notes || "",
+      // PG onboarding fields
+      defaultRent: property.defaultRent || "",
+      defaultDeposit: property.defaultDeposit || "",
+      dueDate: property.dueDate?.toString() || "1",
+      lastPenaltyFreeDate: property.lastPenaltyFreeDate?.toString() || "5",
+      lateFeePerDay: property.lateFeePerDay?.toString() || "50",
+      noticePeriodMonths: property.noticePeriodMonths?.toString() || "1",
+      lockInMonths: property.lockInMonths?.toString() || "0",
+      houseRules: property.houseRules || "",
     });
     setShowForm(true);
   };
@@ -123,6 +141,25 @@ export default function PgProperties() {
           ? Number(formData.totalRooms)
           : undefined,
         totalBeds: formData.totalBeds ? Number(formData.totalBeds) : undefined,
+        // PG onboarding fields
+        defaultRent: formData.defaultRent
+          ? Number(formData.defaultRent)
+          : undefined,
+        defaultDeposit: formData.defaultDeposit
+          ? Number(formData.defaultDeposit)
+          : undefined,
+        dueDate: formData.dueDate ? Number(formData.dueDate) : 1,
+        lastPenaltyFreeDate: formData.lastPenaltyFreeDate
+          ? Number(formData.lastPenaltyFreeDate)
+          : 5,
+        lateFeePerDay: formData.lateFeePerDay
+          ? Number(formData.lateFeePerDay)
+          : 50,
+        noticePeriodMonths: formData.noticePeriodMonths
+          ? Number(formData.noticePeriodMonths)
+          : 1,
+        lockInMonths: formData.lockInMonths ? Number(formData.lockInMonths) : 0,
+        houseRules: formData.houseRules || "",
       };
       if (editingProperty) {
         await api.updateOwnerPgProperty(editingProperty.id, payload);
@@ -388,6 +425,132 @@ export default function PgProperties() {
                   setFormData({ ...formData, notes: e.target.value })
                 }
                 className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] min-h-[80px]"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-3 mt-4">
+                PG Agreement & Billing Settings
+              </h3>
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                Default Rent (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.defaultRent}
+                onChange={(e) =>
+                  setFormData({ ...formData, defaultRent: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)]"
+                placeholder="Default monthly rent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                Default Deposit (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.defaultDeposit}
+                onChange={(e) =>
+                  setFormData({ ...formData, defaultDeposit: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)]"
+                placeholder="Security deposit"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                Payment Due Date (Day of Month)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="31"
+                value={formData.dueDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, dueDate: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                Last Penalty-Free Date (Day of Month)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="31"
+                value={formData.lastPenaltyFreeDate}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    lastPenaltyFreeDate: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                Late Fee Per Day (₹)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.lateFeePerDay}
+                onChange={(e) =>
+                  setFormData({ ...formData, lateFeePerDay: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                Notice Period (Months)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.noticePeriodMonths}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    noticePeriodMonths: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                Lock-In Period (Months)
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={formData.lockInMonths}
+                onChange={(e) =>
+                  setFormData({ ...formData, lockInMonths: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)]"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                House Rules
+              </label>
+              <textarea
+                value={formData.houseRules}
+                onChange={(e) =>
+                  setFormData({ ...formData, houseRules: e.target.value })
+                }
+                className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] min-h-[100px]"
+                placeholder="Enter house rules and policies for tenants..."
               />
             </div>
             <div className="md:col-span-2 flex items-center gap-3">

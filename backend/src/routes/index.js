@@ -25,7 +25,7 @@ router.get("/me", authenticateToken, async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id)
       .select(
-        "name email role isActive avatarUrl assignedProperty ownerProperties onboardingStatus"
+        "name email role isActive avatarUrl assignedProperty ownerProperties onboardingStatus kycStatus agreementAccepted"
       )
       .populate("assignedProperty", "buildingName block flatNumber floor type");
 
@@ -53,6 +53,8 @@ router.get("/me", authenticateToken, async (req, res, next) => {
       isActive: user.isActive,
       avatarUrl: user.avatarUrl || null,
       onboardingStatus: user.onboardingStatus || null,
+      kycStatus: user.kycStatus || null,
+      agreementAccepted: user.agreementAccepted || false,
       navAccess,
       assignedProperty,
     });

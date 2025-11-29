@@ -111,12 +111,15 @@ router.use(authenticateToken);
 router.use(requireAdmin);
 
 const sanitizeUser = (user) => ({
-  id: user._id.toString(),
+  id: user._id?.toString() || user.id,
   name: user.name,
   email: user.email,
   role: user.role,
   isActive: user.isActive,
+  phone: user.phone || "",
+  avatarUrl: user.avatarUrl || null,
   createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
 });
 
 const sanitizeFlat = (flat) => ({
@@ -317,6 +320,409 @@ router.patch("/users/:id/status", async (req, res, next) => {
     }
 
     res.json(sanitizeUser(user));
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/password
+ * Admin can update any user's password
+ */
+router.patch("/users/:id/password", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({
+        error: "Password is required and must be at least 6 characters long",
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(password, 10);
+    user.passwordHash = passwordHash;
+    await user.save();
+
+    console.log(
+      `[Admin] Password updated for user ${user.email} by admin ${req.user.email}`
+    );
+
+    res.json({
+      success: true,
+      message: "Password updated successfully",
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/admin/users/:id
+ * Admin can update any user's details (full update)
+ */
+router.put("/users/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      email,
+      phone,
+      role,
+      isActive,
+      address,
+      personalDetails,
+      avatarUrl,
+      // PG Tenant specific
+      assignedProperty,
+      roomNumber,
+      bedNumber,
+      // Onboarding fields
+      onboardingStatus,
+      kycStatus,
+      agreementAccepted,
+    } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Update fields if provided
+    if (name !== undefined) user.name = name.trim();
+    if (email !== undefined) {
+      // Check if email is already taken by another user
+      const existingUser = await User.findOne({
+        email: email.trim().toLowerCase(),
+        _id: { $ne: id },
+      });
+      if (existingUser) {
+        return res.status(400).json({ error: "Email already in use" });
+      }
+      user.email = email.trim().toLowerCase();
+    }
+    if (phone !== undefined) user.phone = phone?.trim() || "";
+    if (role !== undefined) {
+      if (
+        ![
+          "CITIZEN",
+          "OFFICER",
+          "ADMIN",
+          "TENANT",
+          "PG_TENANT",
+          "FLAT_OWNER",
+          "PG_OWNER",
+        ].includes(role)
+      ) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+      user.role = role;
+    }
+    if (isActive !== undefined) user.isActive = isActive;
+    if (address !== undefined) user.address = { ...user.address, ...address };
+    if (personalDetails !== undefined)
+      user.personalDetails = {
+        ...user.personalDetails,
+        ...personalDetails,
+      };
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl?.trim() || null;
+    if (assignedProperty !== undefined)
+      user.assignedProperty = assignedProperty || null;
+    if (roomNumber !== undefined) user.roomNumber = roomNumber?.trim() || null;
+    if (bedNumber !== undefined) user.bedNumber = bedNumber?.trim() || null;
+    if (onboardingStatus !== undefined) {
+      if (
+        !["invited", "kyc_pending", "kyc_verified", "completed", null].includes(
+          onboardingStatus
+        )
+      ) {
+        return res.status(400).json({ error: "Invalid onboardingStatus" });
+      }
+      user.onboardingStatus = onboardingStatus;
+    }
+    if (kycStatus !== undefined) {
+      if (!["pending", "verified", "rejected", null].includes(kycStatus)) {
+        return res.status(400).json({ error: "Invalid kycStatus" });
+      }
+      user.kycStatus = kycStatus;
+    }
+    if (agreementAccepted !== undefined)
+      user.agreementAccepted = agreementAccepted;
+
+    await user.save();
+
+    console.log(
+      `[Admin] User ${user.email} updated by admin ${req.user.email}`
+    );
+
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: "Email already in use" });
+    }
+    next(error);
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id
+ * Admin can partially update any user's details
+ */
+router.patch("/users/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Validate role if provided
+    if (updateData.role !== undefined) {
+      if (
+        ![
+          "CITIZEN",
+          "OFFICER",
+          "ADMIN",
+          "TENANT",
+          "PG_TENANT",
+          "FLAT_OWNER",
+          "PG_OWNER",
+        ].includes(updateData.role)
+      ) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+    }
+
+    // Validate onboardingStatus if provided
+    if (updateData.onboardingStatus !== undefined) {
+      if (
+        !["invited", "kyc_pending", "kyc_verified", "completed", null].includes(
+          updateData.onboardingStatus
+        )
+      ) {
+        return res.status(400).json({ error: "Invalid onboardingStatus" });
+      }
+    }
+
+    // Validate kycStatus if provided
+    if (updateData.kycStatus !== undefined) {
+      if (
+        !["pending", "verified", "rejected", null].includes(
+          updateData.kycStatus
+        )
+      ) {
+        return res.status(400).json({ error: "Invalid kycStatus" });
+      }
+    }
+
+    // Handle email uniqueness check
+    if (updateData.email !== undefined) {
+      const existingUser = await User.findOne({
+        email: updateData.email.trim().toLowerCase(),
+        _id: { $ne: id },
+      });
+      if (existingUser) {
+        return res.status(400).json({ error: "Email already in use" });
+      }
+      updateData.email = updateData.email.trim().toLowerCase();
+    }
+
+    // Handle name trimming
+    if (updateData.name !== undefined) {
+      updateData.name = updateData.name.trim();
+    }
+
+    // Handle phone trimming
+    if (updateData.phone !== undefined) {
+      updateData.phone = updateData.phone?.trim() || "";
+    }
+
+    // Handle nested objects
+    if (updateData.address !== undefined) {
+      user.address = { ...user.address, ...updateData.address };
+      delete updateData.address;
+    }
+
+    if (updateData.personalDetails !== undefined) {
+      user.personalDetails = {
+        ...user.personalDetails,
+        ...updateData.personalDetails,
+      };
+      delete updateData.personalDetails;
+    }
+
+    // Apply other updates
+    Object.assign(user, updateData);
+    await user.save();
+
+    console.log(
+      `[Admin] User ${user.email} partially updated by admin ${req.user.email}`
+    );
+
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: "Email already in use" });
+    }
+    next(error);
+  }
+});
+
+/**
+ * GET /api/admin/users/:id
+ * Admin can get full details of any user
+ */
+router.get("/users/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id)
+      .populate("assignedProperty", "buildingName block flatNumber floor type")
+      .populate("ownerProperties", "buildingName block flatNumber")
+      .lean();
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Return full user details (admin has full access)
+    res.json({
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      phone: user.phone || "",
+      role: user.role,
+      isActive: user.isActive,
+      avatarUrl: user.avatarUrl || null,
+      address: user.address || {},
+      personalDetails: user.personalDetails || {},
+      assignedProperty: user.assignedProperty
+        ? {
+            id: user.assignedProperty._id.toString(),
+            buildingName: user.assignedProperty.buildingName,
+            block: user.assignedProperty.block,
+            flatNumber: user.assignedProperty.flatNumber,
+            floor: user.assignedProperty.floor,
+            type: user.assignedProperty.type,
+          }
+        : null,
+      ownerProperties:
+        user.ownerProperties?.map((prop) => ({
+          id: prop._id.toString(),
+          buildingName: prop.buildingName,
+          block: prop.block,
+          flatNumber: prop.flatNumber,
+        })) || [],
+      roomNumber: user.roomNumber || null,
+      bedNumber: user.bedNumber || null,
+      onboardingStatus: user.onboardingStatus || null,
+      kycStatus: user.kycStatus || null,
+      agreementAccepted: user.agreementAccepted || false,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * DELETE /api/admin/users/:id
+ * Admin can delete any user (with safety checks)
+ */
+router.delete("/users/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent admin from deleting themselves
+    if (id === req.user.id) {
+      return res.status(400).json({
+        error: "You cannot delete your own account",
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if user has critical associations
+    const [
+      hasComplaints,
+      hasPayments,
+      hasInvoices,
+      hasEvents,
+      hasAnnouncements,
+      hasFlatAssignments,
+      hasOwnerProperties,
+    ] = await Promise.all([
+      Complaint.exists({ userId: id }),
+      RentPayment.exists({ tenantId: id }),
+      MaintenancePayment.exists({ paidByUser: id }),
+      Event.exists({ createdBy: id }),
+      Announcement.exists({ createdBy: id }),
+      UserFlat.exists({ userId: id }),
+      user.ownerProperties && user.ownerProperties.length > 0
+        ? Flat.countDocuments({ ownerId: id })
+        : Promise.resolve(0),
+    ]);
+
+    // If user has critical data, deactivate instead of delete
+    if (
+      hasComplaints ||
+      hasPayments ||
+      hasInvoices ||
+      hasEvents ||
+      hasAnnouncements ||
+      hasFlatAssignments ||
+      hasOwnerProperties > 0
+    ) {
+      // Deactivate user instead of deleting
+      user.isActive = false;
+      await user.save();
+
+      console.log(
+        `[Admin] User ${user.email} deactivated (has associated data) by admin ${req.user.email}`
+      );
+
+      return res.json({
+        success: true,
+        message:
+          "User has associated data. Account has been deactivated instead of deleted.",
+        user: sanitizeUser(user),
+        deactivated: true,
+      });
+    }
+
+    // Safe to delete - no critical associations
+    await User.findByIdAndDelete(id);
+
+    console.log(
+      `[Admin] User ${user.email} deleted by admin ${req.user.email}`
+    );
+
+    res.json({
+      success: true,
+      message: "User deleted successfully",
+      deleted: true,
+    });
   } catch (error) {
     next(error);
   }

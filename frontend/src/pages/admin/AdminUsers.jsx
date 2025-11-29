@@ -33,6 +33,19 @@ function AdminUsers() {
   const [updatingUserId, setUpdatingUserId] = useState(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
 
+  // Edit user modal state
+  const [editingUser, setEditingUser] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [updatingUser, setUpdatingUser] = useState(false);
+
+  // Password update state
+  const [passwordUserId, setPasswordUserId] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  // Delete state
+  const [deletingUserId, setDeletingUserId] = useState(null);
+
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
@@ -101,6 +114,85 @@ function AdminUsers() {
     }
   };
 
+  const handleEditUser = async (user) => {
+    try {
+      const fullUser = await api.getAdminUser(user.id);
+      setEditingUser(fullUser);
+      setEditFormData({
+        name: fullUser.name || "",
+        email: fullUser.email || "",
+        phone: fullUser.phone || "",
+        role: fullUser.role || "CITIZEN",
+        isActive: fullUser.isActive !== undefined ? fullUser.isActive : true,
+      });
+    } catch (error) {
+      showToast.error(error.message || "Failed to load user details");
+    }
+  };
+
+  const handleUpdateUser = async (event) => {
+    event.preventDefault();
+    if (!editingUser) return;
+
+    setUpdatingUser(true);
+    try {
+      await api.updateAdminUser(editingUser.id, editFormData);
+      showToast.success("User updated successfully");
+      setEditingUser(null);
+      setEditFormData({});
+      fetchUsers();
+    } catch (error) {
+      showToast.error(error.message || "Unable to update user");
+    } finally {
+      setUpdatingUser(false);
+    }
+  };
+
+  const handleUpdatePassword = async (event) => {
+    event.preventDefault();
+    if (!passwordUserId || !newPassword || newPassword.length < 6) {
+      showToast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      await api.updateAdminUserPassword(passwordUserId, newPassword);
+      showToast.success("Password updated successfully");
+      setPasswordUserId(null);
+      setNewPassword("");
+    } catch (error) {
+      showToast.error(error.message || "Unable to update password");
+    } finally {
+      setUpdatingPassword(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this user? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    setDeletingUserId(userId);
+    try {
+      const result = await api.deleteAdminUser(userId);
+      if (result.deactivated) {
+        showToast.success("User has been deactivated (has associated data)");
+      } else {
+        showToast.success("User deleted successfully");
+      }
+      fetchUsers();
+    } catch (error) {
+      showToast.error(error.message || "Unable to delete user");
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -108,7 +200,8 @@ function AdminUsers() {
           User Management
         </h1>
         <p className="text-[var(--color-text-secondary)]">
-          Manage all roles and activation states from a single view.
+          Full administrator access - update passwords, edit details, and manage
+          all users.
         </p>
       </div>
 
@@ -217,14 +310,38 @@ function AdminUsers() {
                         </span>
                       </td>
                       <td className="py-3 pr-0 text-right">
-                        <Button
-                          variant={user.isActive ? "secondary" : "primary"}
-                          size="sm"
-                          loading={statusUpdatingId === user.id}
-                          onClick={() => handleStatusToggle(user)}
-                        >
-                          {user.isActive ? "Deactivate" : "Activate"}
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleEditUser(user)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setPasswordUserId(user.id)}
+                          >
+                            Password
+                          </Button>
+                          <Button
+                            variant={user.isActive ? "secondary" : "primary"}
+                            size="sm"
+                            loading={statusUpdatingId === user.id}
+                            onClick={() => handleStatusToggle(user)}
+                          >
+                            {user.isActive ? "Deactivate" : "Activate"}
+                          </Button>
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            loading={deletingUserId === user.id}
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -277,7 +394,7 @@ function AdminUsers() {
               <input
                 type="password"
                 required
-                minLength={8}
+                minLength={6}
                 value={formData.password}
                 onChange={(event) =>
                   setFormData((prev) => ({
@@ -312,6 +429,194 @@ function AdminUsers() {
           </form>
         </Card>
       </div>
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card
+            className="max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            padding="lg"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">
+                Edit User
+              </h2>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setEditingUser(null);
+                  setEditFormData({});
+                }}
+              >
+                ✕
+              </Button>
+            </div>
+            <form onSubmit={handleUpdateUser} className="space-y-4">
+              <div>
+                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.name}
+                  onChange={(e) =>
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={editFormData.email}
+                  onChange={(e) =>
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={editFormData.phone || ""}
+                  onChange={(e) =>
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      phone: e.target.value,
+                    }))
+                  }
+                  className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                  Role
+                </label>
+                <select
+                  value={editFormData.role}
+                  onChange={(e) =>
+                    setEditFormData((prev) => ({
+                      ...prev,
+                      role: e.target.value,
+                    }))
+                  }
+                  className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+                >
+                  {ROLE_OPTIONS.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editFormData.isActive}
+                    onChange={(e) =>
+                      setEditFormData((prev) => ({
+                        ...prev,
+                        isActive: e.target.checked,
+                      }))
+                    }
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-[var(--color-text-secondary)]">
+                    Active
+                  </span>
+                </label>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button type="submit" fullWidth loading={updatingUser}>
+                  Update User
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => {
+                    setEditingUser(null);
+                    setEditFormData({});
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Update Password Modal */}
+      {passwordUserId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full" padding="lg">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">
+                Update Password
+              </h2>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setPasswordUserId(null);
+                  setNewPassword("");
+                }}
+              >
+                ✕
+              </Button>
+            </div>
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div>
+                <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]"
+                  placeholder="Minimum 6 characters"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button type="submit" fullWidth loading={updatingPassword}>
+                  Update Password
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => {
+                    setPasswordUserId(null);
+                    setNewPassword("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
