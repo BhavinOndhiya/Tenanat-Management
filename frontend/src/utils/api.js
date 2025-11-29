@@ -404,6 +404,28 @@ export const api = {
     document.body.removeChild(a);
   },
 
+  async viewDocument(type) {
+    // type: 'ekyc' or 'agreement'
+    const response = await fetch(`${API_BASE_URL}/documents/download/${type}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to view document");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    // Open in new tab
+    window.open(url, "_blank");
+    // Clean up after a delay (browser will handle the URL)
+    setTimeout(() => window.URL.revokeObjectURL(url), 100);
+  },
+
   async getTenantDocuments(tenantId) {
     return this.request(
       `/documents/tenant-documents${tenantId ? `?tenantId=${tenantId}` : ""}`
@@ -436,6 +458,31 @@ export const api = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  },
+
+  async viewTenantDocument(tenantId, type) {
+    // type: 'ekyc' or 'agreement'
+    const response = await fetch(
+      `${API_BASE_URL}/documents/tenant/${tenantId}/download/${type}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to view document");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    // Open in new tab
+    window.open(url, "_blank");
+    // Clean up after a delay (browser will handle the URL)
+    setTimeout(() => window.URL.revokeObjectURL(url), 100);
   },
 
   // Admin flats

@@ -58,6 +58,19 @@ function OwnerDocuments() {
     }
   };
 
+  const handleView = async (type) => {
+    if (!selectedTenant) return;
+
+    try {
+      setDownloading(type); // Reuse downloading state for view as well
+      await api.viewTenantDocument(selectedTenant.id, type);
+    } catch (error) {
+      showToast.error(error.message || "Failed to view document");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -184,18 +197,28 @@ function OwnerDocuments() {
                         </div>
                       </div>
 
-                      <Button
-                        fullWidth
-                        size="sm"
-                        variant={doc.available ? "primary" : "secondary"}
-                        disabled={!doc.available}
-                        loading={downloading === doc.type}
-                        onClick={() => handleDownload(doc.type)}
-                      >
-                        {doc.available
-                          ? "Download PDF"
-                          : "Document Not Available"}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          fullWidth
+                          size="sm"
+                          variant={doc.available ? "secondary" : "secondary"}
+                          disabled={!doc.available}
+                          loading={downloading === doc.type}
+                          onClick={() => handleView(doc.type)}
+                        >
+                          {doc.available ? "View" : "N/A"}
+                        </Button>
+                        <Button
+                          fullWidth
+                          size="sm"
+                          variant={doc.available ? "primary" : "secondary"}
+                          disabled={!doc.available}
+                          loading={downloading === doc.type}
+                          onClick={() => handleDownload(doc.type)}
+                        >
+                          {doc.available ? "Download" : "N/A"}
+                        </Button>
+                      </div>
                     </Card>
                   ))}
                 </div>

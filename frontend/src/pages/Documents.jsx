@@ -45,6 +45,17 @@ function Documents() {
     }
   };
 
+  const handleView = async (type) => {
+    try {
+      setDownloading(type); // Reuse downloading state for view as well
+      await api.viewDocument(type);
+    } catch (error) {
+      showToast.error(error.message || "Failed to view document");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   const handleGenerateDocuments = async () => {
     try {
       setGenerating(true);
@@ -154,7 +165,16 @@ function Documents() {
                 </div>
               </div>
 
-              <div className="mt-6">
+              <div className="mt-6 flex gap-3">
+                <Button
+                  fullWidth
+                  variant={doc.available ? "secondary" : "secondary"}
+                  disabled={!doc.available}
+                  loading={downloading === doc.type}
+                  onClick={() => handleView(doc.type)}
+                >
+                  {doc.available ? "View PDF" : "Not Available"}
+                </Button>
                 <Button
                   fullWidth
                   variant={doc.available ? "primary" : "secondary"}
@@ -162,7 +182,7 @@ function Documents() {
                   loading={downloading === doc.type}
                   onClick={() => handleDownload(doc.type)}
                 >
-                  {doc.available ? "Download PDF" : "Document Not Available"}
+                  {doc.available ? "Download" : "Not Available"}
                 </Button>
               </div>
             </Card>
