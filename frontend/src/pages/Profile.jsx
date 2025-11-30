@@ -181,32 +181,6 @@ function Profile() {
     }
   };
 
-  const addChild = () => {
-    setProfileData({
-      ...profileData,
-      familyDetails: {
-        ...profileData.familyDetails,
-        children: [
-          ...profileData.familyDetails.children,
-          { name: "", age: "", relationship: "Child" },
-        ],
-      },
-    });
-  };
-
-  const addOtherMember = () => {
-    setProfileData({
-      ...profileData,
-      familyDetails: {
-        ...profileData.familyDetails,
-        otherMembers: [
-          ...profileData.familyDetails.otherMembers,
-          { name: "", age: "", relationship: "" },
-        ],
-      },
-    });
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -1265,11 +1239,11 @@ function Profile() {
         </div>
       )}
 
-      {/* Marital Status & Family Details */}
+      {/* Personal Details */}
       <ScrollAnimation delay={0.5}>
         <Card padding="lg">
           <h2 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-6">
-            Family & Personal Details
+            Personal Details
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -1329,167 +1303,6 @@ function Profile() {
                 </p>
               )}
             </div>
-
-            {profileData.maritalStatus === "MARRIED" && (
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                  Spouse Name
-                </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={profileData.familyDetails.spouseName}
-                    onChange={(e) =>
-                      setProfileData({
-                        ...profileData,
-                        familyDetails: {
-                          ...profileData.familyDetails,
-                          spouseName: e.target.value,
-                        },
-                      })
-                    }
-                    className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
-                  />
-                ) : (
-                  <p className="text-lg text-[var(--color-text-primary)]">
-                    {profileData.familyDetails.spouseName || "Not provided"}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {profileData.maritalStatus === "MARRIED" && (
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                  Children
-                </label>
-                {isEditing ? (
-                  <div className="space-y-2">
-                    {profileData.familyDetails.children.map((child, idx) => (
-                      <div key={idx} className="flex gap-2">
-                        <input
-                          type="text"
-                          value={child.name}
-                          onChange={(e) => {
-                            const newChildren = [
-                              ...profileData.familyDetails.children,
-                            ];
-                            newChildren[idx].name = e.target.value;
-                            setProfileData({
-                              ...profileData,
-                              familyDetails: {
-                                ...profileData.familyDetails,
-                                children: newChildren,
-                              },
-                            });
-                          }}
-                          placeholder="Child name"
-                          className="flex-1 px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
-                        />
-                        <input
-                          type="number"
-                          value={child.age}
-                          onChange={(e) => {
-                            const newChildren = [
-                              ...profileData.familyDetails.children,
-                            ];
-                            newChildren[idx].age = e.target.value;
-                            setProfileData({
-                              ...profileData,
-                              familyDetails: {
-                                ...profileData.familyDetails,
-                                children: newChildren,
-                              },
-                            });
-                          }}
-                          placeholder="Age"
-                          className="w-20 px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
-                        />
-                      </div>
-                    ))}
-                    <Button size="sm" variant="secondary" onClick={addChild}>
-                      + Add Child
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-lg text-[var(--color-text-primary)]">
-                    {profileData.familyDetails.children.length > 0
-                      ? `${profileData.familyDetails.children.length} child(ren)`
-                      : "No children"}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {(profileData.maritalStatus === "SINGLE" ||
-              !profileData.maritalStatus) && (
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                  Other Family Members
-                </label>
-                {isEditing ? (
-                  <div className="space-y-2">
-                    {profileData.familyDetails.otherMembers.map(
-                      (member, idx) => (
-                        <div key={idx} className="flex gap-2">
-                          <input
-                            type="text"
-                            value={member.name}
-                            onChange={(e) => {
-                              const newMembers = [
-                                ...profileData.familyDetails.otherMembers,
-                              ];
-                              newMembers[idx].name = e.target.value;
-                              setProfileData({
-                                ...profileData,
-                                familyDetails: {
-                                  ...profileData.familyDetails,
-                                  otherMembers: newMembers,
-                                },
-                              });
-                            }}
-                            placeholder="Name"
-                            className="flex-1 px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
-                          />
-                          <input
-                            type="text"
-                            value={member.relationship}
-                            onChange={(e) => {
-                              const newMembers = [
-                                ...profileData.familyDetails.otherMembers,
-                              ];
-                              newMembers[idx].relationship = e.target.value;
-                              setProfileData({
-                                ...profileData,
-                                familyDetails: {
-                                  ...profileData.familyDetails,
-                                  otherMembers: newMembers,
-                                },
-                              });
-                            }}
-                            placeholder="Relationship"
-                            className="flex-1 px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
-                          />
-                        </div>
-                      )
-                    )}
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={addOtherMember}
-                    >
-                      + Add Member
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-lg text-[var(--color-text-primary)]">
-                    {profileData.familyDetails.otherMembers.length > 0
-                      ? `${profileData.familyDetails.otherMembers.length} member(s)`
-                      : "No other members"}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         </Card>
       </ScrollAnimation>
