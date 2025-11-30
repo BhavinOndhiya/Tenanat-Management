@@ -749,6 +749,10 @@ export const api = {
     return this.request("/owner/pg/tenants");
   },
 
+  async getAvailablePgTenants() {
+    return this.request("/owner/pg/tenants/available");
+  },
+
   async createPgTenant(payload) {
     return this.request("/owner/pg/tenants", {
       method: "POST",

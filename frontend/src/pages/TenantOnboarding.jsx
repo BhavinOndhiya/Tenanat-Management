@@ -97,7 +97,18 @@ export default function TenantOnboarding() {
       }
     } catch (error) {
       console.error("Failed to load onboarding data:", error);
-      showToast.error(error.message || "Failed to load onboarding data");
+      const errorMessage = error.message || "Failed to load onboarding data";
+
+      // Check if it's a profile not found error
+      if (
+        errorMessage.includes("assigned to a PG property") ||
+        errorMessage.includes("contact your PG owner")
+      ) {
+        // Don't show toast for this - we'll show a better UI message
+        setOnboardingData(null);
+      } else {
+        showToast.error(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -299,16 +310,79 @@ export default function TenantOnboarding() {
 
   if (!onboardingData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
-        <div className="text-center">
-          <p className="text-red-600">Failed to load onboarding data</p>
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg"
-          >
-            Go to Dashboard
-          </button>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 py-8 px-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center"
+        >
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg
+                className="w-10 h-10 text-indigo-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              Waiting for PG Owner
+            </h2>
+            <p className="text-gray-600 mb-4">
+              You haven't been assigned to a PG property yet.
+            </p>
+          </div>
+
+          <div className="bg-indigo-50 rounded-lg p-6 mb-6 text-left">
+            <h3 className="font-semibold text-indigo-900 mb-3">
+              What to do next:
+            </h3>
+            <ol className="space-y-2 text-sm text-indigo-800">
+              <li className="flex items-start">
+                <span className="font-bold mr-2">1.</span>
+                <span>
+                  Contact your PG owner and provide them with your email:{" "}
+                  <strong className="text-indigo-900">{user?.email}</strong>
+                </span>
+              </li>
+              <li className="flex items-start">
+                <span className="font-bold mr-2">2.</span>
+                <span>
+                  Ask them to add you as a tenant in their PG management system
+                </span>
+              </li>
+              <li className="flex items-start">
+                <span className="font-bold mr-2">3.</span>
+                <span>
+                  Once added, you'll receive an email notification and can
+                  complete your onboarding
+                </span>
+              </li>
+            </ol>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+            >
+              Go to Dashboard
+            </button>
+            <button
+              onClick={() => loadOnboardingData()}
+              className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+        </motion.div>
       </div>
     );
   }

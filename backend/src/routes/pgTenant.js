@@ -50,7 +50,12 @@ router.get("/profile", async (req, res, next) => {
       .lean();
 
     if (!profile) {
-      return res.status(404).json({ error: "PG tenant profile not found" });
+      return res.status(404).json({
+        error:
+          "You haven't been assigned to a PG property yet. Please contact your PG owner to add you as a tenant.",
+        code: "PROFILE_NOT_FOUND",
+        requiresOwnerAction: true,
+      });
     }
 
     const property = profile.propertyId;

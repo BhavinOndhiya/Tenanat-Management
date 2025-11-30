@@ -999,6 +999,55 @@ router.get("/pg/tenants", async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/owner/pg/tenants/available
+ * Get all PG_TENANT users who are not assigned to any property or assigned to other properties
+ */
+router.get("/pg/tenants/available", async (req, res, next) => {
+  try {
+    if (req.user.role !== "PG_OWNER") {
+      return res.status(403).json({ error: "PG owner access required" });
+    }
+
+    // Get all PG_TENANT users
+    const allTenants = await User.find({
+      role: "PG_TENANT",
+    })
+      .select("name email phone assignedProperty onboardingStatus")
+      .lean();
+
+    // Get owner's properties
+    const properties = await resolveOwnerProperties(req.user, "PG");
+    const ownerPropertyIds = properties.map((prop) => prop._id.toString());
+
+    // Filter tenants:
+    // 1. Not assigned to any property (assignedProperty is null)
+    // 2. Assigned to a property that's not owned by this owner
+    const availableTenants = allTenants
+      .filter((tenant) => {
+        if (!tenant.assignedProperty) {
+          return true; // Not assigned to any property
+        }
+        const assignedPropertyId = tenant.assignedProperty.toString();
+        return !ownerPropertyIds.includes(assignedPropertyId); // Assigned to other property
+      })
+      .map((tenant) => ({
+        id: tenant._id.toString(),
+        name: tenant.name,
+        email: tenant.email,
+        phone: tenant.phone || "",
+        assignedProperty: tenant.assignedProperty
+          ? tenant.assignedProperty.toString()
+          : null,
+        onboardingStatus: tenant.onboardingStatus || null,
+      }));
+
+    res.json({ tenants: availableTenants });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/pg/tenants", async (req, res, next) => {
   try {
     if (req.user.role !== "PG_OWNER") {

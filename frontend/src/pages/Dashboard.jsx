@@ -232,9 +232,18 @@ function Dashboard() {
                 <Loader />
               </div>
             ) : !pgProfile ? (
-              <p className="text-[var(--color-text-secondary)] text-sm">
-                PG profile not found. Please contact your owner.
-              </p>
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                <p className="text-indigo-900 font-semibold mb-2">
+                  Waiting for PG Owner Assignment
+                </p>
+                <p className="text-indigo-700 text-sm mb-3">
+                  You haven't been assigned to a PG property yet. Please contact
+                  your PG owner to add you as a tenant.
+                </p>
+                <p className="text-indigo-600 text-xs">
+                  Your email: <strong>{user?.email}</strong>
+                </p>
+              </div>
             ) : (
               <div className="space-y-4">
                 {pgProfile.property && (

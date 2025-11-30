@@ -62,6 +62,11 @@ export default function PgTenantManagement() {
   const [properties, setProperties] = useState([]);
   const [availableFacilities, setAvailableFacilities] = useState([]);
   const [tempPasswordInfo, setTempPasswordInfo] = useState(null);
+  const [addMode, setAddMode] = useState(null); // 'new' or 'existing'
+  const [availableTenants, setAvailableTenants] = useState([]);
+  const [loadingAvailableTenants, setLoadingAvailableTenants] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTenantId, setSelectedTenantId] = useState(null);
   const selectedProperty = useMemo(
     () => properties.find((property) => property.id === formData.propertyId),
     [properties, formData.propertyId]
@@ -260,7 +265,11 @@ export default function PgTenantManagement() {
         setTempPasswordInfo(null);
       } else {
         const response = await api.createPgTenant(formData);
-        showToast.success("Tenant invited. Password setup email sent.");
+        if (selectedTenantId) {
+          showToast.success("Existing tenant assigned successfully!");
+        } else {
+          showToast.success("Tenant invited. Password setup email sent.");
+        }
         if (response.temporaryPassword) {
           setTempPasswordInfo({
             email: response.tenant?.email,
@@ -272,6 +281,9 @@ export default function PgTenantManagement() {
       }
       setShowForm(false);
       resetForm();
+      setAddMode(null);
+      setSelectedTenantId(null);
+      setSearchQuery("");
       await loadTenants();
     } catch (error) {
       showToast.error(
@@ -332,7 +344,50 @@ export default function PgTenantManagement() {
     setShowForm(false);
     resetForm();
     setTempPasswordInfo(null);
+    setAddMode(null);
+    setSelectedTenantId(null);
+    setSearchQuery("");
   };
+
+  const loadAvailableTenants = async () => {
+    try {
+      setLoadingAvailableTenants(true);
+      const response = await api.getAvailablePgTenants();
+      setAvailableTenants(response.tenants || []);
+    } catch (error) {
+      showToast.error(error.message || "Failed to load available tenants");
+    } finally {
+      setLoadingAvailableTenants(false);
+    }
+  };
+
+  const handleAddModeSelect = (mode) => {
+    setAddMode(mode);
+    if (mode === "existing") {
+      loadAvailableTenants();
+    }
+  };
+
+  const handleSelectExistingTenant = (tenant) => {
+    setSelectedTenantId(tenant.id);
+    setFormData({
+      ...defaultFormData,
+      name: tenant.name,
+      email: tenant.email,
+      phone: tenant.phone || "",
+      propertyId: formData.propertyId || properties[0]?.id || "",
+      servicesIncluded: [],
+    });
+  };
+
+  const filteredAvailableTenants = availableTenants.filter((tenant) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      tenant.name.toLowerCase().includes(query) ||
+      tenant.email.toLowerCase().includes(query) ||
+      (tenant.phone && tenant.phone.includes(query))
+    );
+  });
 
   const promptDeleteTenant = (tenant) => {
     setDeleteDialog({ tenant, loading: false });
@@ -378,19 +433,232 @@ export default function PgTenantManagement() {
               }
             }}
           >
-            {showForm ? "Close Form" : isEditing ? "Close Edit" : "Add Tenant"}
+            {showForm ? "Close" : isEditing ? "Close Edit" : "Add Tenant"}
           </Button>
         </div>
       </ScrollAnimation>
 
-      {showForm && (
+      {showForm && !isEditing && !addMode && (
+        <Card padding="lg" className="space-y-4">
+          <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+            Add Tenant
+          </h2>
+          <p className="text-[var(--color-text-secondary)] mb-4">
+            Choose how you want to add a tenant:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => handleAddModeSelect("new")}
+              className="p-6 border-2 border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)]/10 transition-all text-left"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-indigo-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  Add New Tenant
+                </h3>
+              </div>
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Create a new tenant account with email and password
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAddModeSelect("existing")}
+              className="p-6 border-2 border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)]/10 transition-all text-left"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="w-6 h-6 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  Assign Existing Tenant
+                </h3>
+              </div>
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Assign a tenant who already has an account
+              </p>
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {showForm && !isEditing && addMode === "existing" && (
         <Card
           padding="lg"
           className="space-y-4 border-2 border-[var(--color-primary)]"
         >
-          <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
-            {isEditing ? "Edit PG Tenant" : "Create PG Tenant"}
-          </h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+                Assign Existing Tenant
+              </h2>
+              <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                Select a tenant from the list below
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setAddMode(null)}
+            >
+              Back
+            </Button>
+          </div>
+
+          {loadingAvailableTenants ? (
+            <div className="flex justify-center py-8">
+              <Loader />
+            </div>
+          ) : (
+            <>
+              <div>
+                <input
+                  type="text"
+                  placeholder="Search by name, email, or phone..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)]"
+                />
+              </div>
+
+              {filteredAvailableTenants.length === 0 ? (
+                <div className="text-center py-8 text-[var(--color-text-secondary)]">
+                  {searchQuery
+                    ? "No tenants found matching your search"
+                    : "No available tenants found"}
+                </div>
+              ) : (
+                <div className="max-h-96 overflow-y-auto space-y-2">
+                  {filteredAvailableTenants.map((tenant) => (
+                    <button
+                      key={tenant.id}
+                      type="button"
+                      onClick={() => handleSelectExistingTenant(tenant)}
+                      className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
+                        selectedTenantId === tenant.id
+                          ? "border-[var(--color-primary)] bg-[var(--color-primary-light)]/20"
+                          : "border-[var(--color-border)] hover:border-[var(--color-primary)]/50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-[var(--color-text-primary)]">
+                            {tenant.name}
+                          </p>
+                          <p className="text-sm text-[var(--color-text-secondary)]">
+                            {tenant.email}
+                          </p>
+                          {tenant.phone && (
+                            <p className="text-xs text-[var(--color-text-tertiary)]">
+                              {tenant.phone}
+                            </p>
+                          )}
+                          {tenant.assignedProperty && (
+                            <p className="text-xs text-orange-600 mt-1">
+                              Currently assigned to another property
+                            </p>
+                          )}
+                        </div>
+                        {selectedTenantId === tenant.id && (
+                          <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-4 h-4 text-white"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedTenantId && (
+                <div className="pt-4 border-t border-[var(--color-border)]">
+                  <Button
+                    onClick={() => {
+                      const selectedTenant = availableTenants.find(
+                        (t) => t.id === selectedTenantId
+                      );
+                      if (selectedTenant) {
+                        setAddMode("new");
+                        setFormData({
+                          ...defaultFormData,
+                          name: selectedTenant.name,
+                          email: selectedTenant.email,
+                          phone: selectedTenant.phone || "",
+                          propertyId:
+                            formData.propertyId || properties[0]?.id || "",
+                          servicesIncluded: [],
+                        });
+                      }
+                    }}
+                    className="w-full"
+                  >
+                    Continue with Selected Tenant
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </Card>
+      )}
+
+      {showForm && (isEditing || addMode === "new") && (
+        <Card
+          padding="lg"
+          className="space-y-4 border-2 border-[var(--color-primary)]"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+              {isEditing ? "Edit PG Tenant" : "Create PG Tenant"}
+            </h2>
+            {!isEditing && addMode === "new" && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setAddMode(null)}
+              >
+                Back
+              </Button>
+            )}
+          </div>
           <form
             onSubmit={handleSubmit}
             className="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -412,6 +680,11 @@ export default function PgTenantManagement() {
             <div>
               <label className="block text-sm text-[var(--color-text-secondary)] mb-1">
                 Email
+                {selectedTenantId && (
+                  <span className="text-xs text-[var(--color-text-tertiary)] ml-2">
+                    (Existing tenant - cannot be changed)
+                  </span>
+                )}
               </label>
               <input
                 type="email"
@@ -421,6 +694,8 @@ export default function PgTenantManagement() {
                 }
                 className="w-full px-4 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-primary)]"
                 required
+                disabled={!!selectedTenantId}
+                readOnly={!!selectedTenantId}
               />
             </div>
             <div>

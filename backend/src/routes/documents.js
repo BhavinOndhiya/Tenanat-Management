@@ -300,7 +300,10 @@ router.get("/tenant-documents", async (req, res, next) => {
 
       if (!profile || !profile.propertyId) {
         return res.status(404).json({
-          error: "Tenant profile not found",
+          error:
+            "You haven't been assigned to a PG property yet. Please contact your PG owner to add you as a tenant so you can access your documents.",
+          code: "PROFILE_NOT_FOUND",
+          requiresOwnerAction: true,
         });
       }
 
@@ -469,7 +472,10 @@ router.get("/tenant/:tenantId/download/:type", async (req, res, next) => {
 
       if (!profile || !profile.propertyId) {
         return res.status(404).json({
-          error: "Tenant profile not found",
+          error:
+            "You haven't been assigned to a PG property yet. Please contact your PG owner to add you as a tenant so you can access your documents.",
+          code: "PROFILE_NOT_FOUND",
+          requiresOwnerAction: true,
         });
       }
 
