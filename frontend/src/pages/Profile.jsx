@@ -37,11 +37,6 @@ function Profile() {
       country: "",
     },
     maritalStatus: "",
-    familyDetails: {
-      spouseName: "",
-      children: [],
-      otherMembers: [],
-    },
     personalDetails: {
       occupation: "",
       dateOfBirth: "",
@@ -101,11 +96,6 @@ function Profile() {
             country: "",
           },
           maritalStatus: profile.maritalStatus || "",
-          familyDetails: profile.familyDetails || {
-            spouseName: "",
-            children: [],
-            otherMembers: [],
-          },
           personalDetails: profile.personalDetails || {
             occupation: "",
             dateOfBirth: "",

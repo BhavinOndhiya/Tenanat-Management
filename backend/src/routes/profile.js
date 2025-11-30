@@ -19,6 +19,37 @@ router.get("/", async (req, res, next) => {
     }
 
     // Return a clean, serializable object
+    // Safely handle nested objects that might be null or undefined
+    const safeAddress =
+      user.address && typeof user.address === "object"
+        ? {
+            street: user.address.street || "",
+            city: user.address.city || "",
+            state: user.address.state || "",
+            zipCode: user.address.zipCode || "",
+            country: user.address.country || "",
+          }
+        : {
+            street: "",
+            city: "",
+            state: "",
+            zipCode: "",
+            country: "",
+          };
+
+    const safePersonalDetails =
+      user.personalDetails && typeof user.personalDetails === "object"
+        ? {
+            occupation: user.personalDetails.occupation || "",
+            dateOfBirth: user.personalDetails.dateOfBirth || "",
+            gender: user.personalDetails.gender || "",
+          }
+        : {
+            occupation: "",
+            dateOfBirth: "",
+            gender: "",
+          };
+
     res.json({
       id: user._id.toString(),
       name: user.name || "",
@@ -26,24 +57,9 @@ router.get("/", async (req, res, next) => {
       phone: user.phone || "",
       avatarUrl: user.avatarUrl || "",
       role: user.role || "",
-      address: user.address || {
-        street: "",
-        city: "",
-        state: "",
-        zipCode: "",
-        country: "",
-      },
+      address: safeAddress,
       maritalStatus: user.maritalStatus || "",
-      familyDetails: user.familyDetails || {
-        spouseName: "",
-        children: [],
-        otherMembers: [],
-      },
-      personalDetails: user.personalDetails || {
-        occupation: "",
-        dateOfBirth: "",
-        gender: "",
-      },
+      personalDetails: safePersonalDetails,
       onboardingStatus: user.onboardingStatus || null,
       kycStatus: user.kycStatus || null,
       agreementAccepted: user.agreementAccepted || false,
@@ -57,15 +73,8 @@ router.get("/", async (req, res, next) => {
 // PATCH /api/profile - Update user profile
 router.patch("/", async (req, res, next) => {
   try {
-    const {
-      name,
-      phone,
-      avatarUrl,
-      address,
-      maritalStatus,
-      familyDetails,
-      personalDetails,
-    } = req.body;
+    const { name, phone, avatarUrl, address, maritalStatus, personalDetails } =
+      req.body;
 
     const updateData = {};
     if (name) updateData.name = name;
@@ -73,8 +82,14 @@ router.patch("/", async (req, res, next) => {
     if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
     if (address) updateData.address = address;
     if (maritalStatus) updateData.maritalStatus = maritalStatus;
-    if (familyDetails) updateData.familyDetails = familyDetails;
-    if (personalDetails) updateData.personalDetails = personalDetails;
+    if (personalDetails) {
+      // Allow occupation, dateOfBirth, and gender in personalDetails
+      updateData.personalDetails = {
+        occupation: personalDetails.occupation || "",
+        dateOfBirth: personalDetails.dateOfBirth || "",
+        gender: personalDetails.gender || "",
+      };
+    }
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
