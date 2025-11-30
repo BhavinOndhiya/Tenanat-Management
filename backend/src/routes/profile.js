@@ -10,14 +10,46 @@ router.use(authenticateToken);
 // GET /api/profile - Get user profile
 router.get("/", async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).select("-passwordHash -__v");
+    const user = await User.findById(req.user.id)
+      .select("-passwordHash -__v")
+      .lean();
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.json(user);
+    // Return a clean, serializable object
+    res.json({
+      id: user._id.toString(),
+      name: user.name || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      avatarUrl: user.avatarUrl || "",
+      role: user.role || "",
+      address: user.address || {
+        street: "",
+        city: "",
+        state: "",
+        zipCode: "",
+        country: "",
+      },
+      maritalStatus: user.maritalStatus || "",
+      familyDetails: user.familyDetails || {
+        spouseName: "",
+        children: [],
+        otherMembers: [],
+      },
+      personalDetails: user.personalDetails || {
+        occupation: "",
+        dateOfBirth: "",
+        gender: "",
+      },
+      onboardingStatus: user.onboardingStatus || null,
+      kycStatus: user.kycStatus || null,
+      agreementAccepted: user.agreementAccepted || false,
+    });
   } catch (error) {
+    console.error("[Profile GET] Error:", error);
     next(error);
   }
 });
