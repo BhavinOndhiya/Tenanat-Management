@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { api } from "../utils/api";
 import { showToast } from "../utils/toast";
 import { useAuth } from "../context/AuthContext";
+import { validatePassword, getPasswordGuidelines } from "../utils/validation";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -15,6 +16,9 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [userInfo, setUserInfo] = useState(null);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState("weak");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
 
   const token = searchParams.get("token");
 
@@ -51,21 +55,45 @@ export default function ResetPassword() {
     }
   }, [token]);
 
+  const handlePasswordChange = (value) => {
+    setPassword(value);
+    const validation = validatePassword(value);
+    setPasswordError(validation.error || "");
+    setPasswordStrength(validation.strength || "weak");
+
+    // Also check confirm password if it's already filled
+    if (confirmPassword) {
+      if (value !== confirmPassword) {
+        setConfirmPasswordError("Passwords do not match");
+      } else {
+        setConfirmPasswordError("");
+      }
+    }
+  };
+
+  const handleConfirmPasswordChange = (value) => {
+    setConfirmPassword(value);
+    if (value !== password) {
+      setConfirmPasswordError("Passwords do not match");
+    } else {
+      setConfirmPasswordError("");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!password || !confirmPassword) {
-      setError("Please enter and confirm your password");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      setPasswordError(passwordValidation.error);
+      setError(passwordValidation.error);
       return;
     }
 
     if (password !== confirmPassword) {
+      setConfirmPasswordError("Passwords do not match");
       setError("Passwords do not match");
       return;
     }
@@ -187,15 +215,51 @@ export default function ResetPassword() {
               type="password"
               id="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+              onChange={(e) => handlePasswordChange(e.target.value)}
+              onBlur={() => {
+                if (password) {
+                  const validation = validatePassword(password);
+                  setPasswordError(validation.error || "");
+                  setPasswordStrength(validation.strength || "weak");
+                }
+              }}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition ${
+                passwordError
+                  ? "border-red-300 bg-red-50"
+                  : passwordStrength === "strong"
+                  ? "border-green-300 bg-green-50"
+                  : passwordStrength === "medium"
+                  ? "border-yellow-300 bg-yellow-50"
+                  : "border-gray-300"
+              }`}
               placeholder="Enter your new password"
               required
-              minLength={6}
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Must be at least 6 characters
-            </p>
+            {passwordError && (
+              <p className="mt-1 text-xs text-red-600">{passwordError}</p>
+            )}
+            {!passwordError && password && (
+              <div className="mt-1 space-y-1">
+                <p className="text-xs text-gray-500 whitespace-pre-line">
+                  {getPasswordGuidelines()}
+                </p>
+                {passwordStrength === "strong" && (
+                  <p className="text-xs text-green-600 font-semibold">
+                    ✓ Strong password
+                  </p>
+                )}
+                {passwordStrength === "medium" && (
+                  <p className="text-xs text-yellow-600 font-semibold">
+                    ⚠ Medium strength - consider adding more characters
+                  </p>
+                )}
+              </div>
+            )}
+            {!password && (
+              <p className="mt-1 text-xs text-gray-500 whitespace-pre-line">
+                {getPasswordGuidelines()}
+              </p>
+            )}
           </div>
 
           <div>
@@ -209,12 +273,34 @@ export default function ResetPassword() {
               type="password"
               id="confirmPassword"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+              onChange={(e) => handleConfirmPasswordChange(e.target.value)}
+              onBlur={() => {
+                if (confirmPassword && confirmPassword !== password) {
+                  setConfirmPasswordError("Passwords do not match");
+                } else {
+                  setConfirmPasswordError("");
+                }
+              }}
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition ${
+                confirmPasswordError
+                  ? "border-red-300 bg-red-50"
+                  : "border-gray-300"
+              }`}
               placeholder="Confirm your new password"
               required
-              minLength={6}
             />
+            {confirmPasswordError && (
+              <p className="mt-1 text-xs text-red-600">
+                {confirmPasswordError}
+              </p>
+            )}
+            {!confirmPasswordError &&
+              confirmPassword &&
+              password === confirmPassword && (
+                <p className="mt-1 text-xs text-green-600 font-semibold">
+                  ✓ Passwords match
+                </p>
+              )}
           </div>
 
           <motion.button

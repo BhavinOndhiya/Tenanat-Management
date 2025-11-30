@@ -98,6 +98,21 @@ export const api = {
     });
   },
 
+  // OAuth endpoints
+  async loginWithGoogle(idToken) {
+    return this.request("/auth/google", {
+      method: "POST",
+      body: { idToken },
+    });
+  },
+
+  async loginWithFacebook(accessToken) {
+    return this.request("/auth/facebook", {
+      method: "POST",
+      body: { accessToken },
+    });
+  },
+
   async verifySetupToken(token) {
     return this.request(
       `/auth/verify-setup-token?token=${encodeURIComponent(token)}`,

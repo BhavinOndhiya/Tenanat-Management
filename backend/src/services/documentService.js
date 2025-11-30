@@ -622,7 +622,7 @@ export async function generatePgAgreementDocument({
 
   doc
     .fontSize(9)
-    .font("Helvetica-Italic")
+    .font("Helvetica")
     .fillColor(colors.textSecondary)
     .text(consentSection.statement, 50, yPosition, {
       width: doc.page.width - 100,

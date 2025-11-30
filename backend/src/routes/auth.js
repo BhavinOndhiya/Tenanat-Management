@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import { getNavForRole } from "../utils/roleAccess.js";
+import { validateEmail, validatePassword } from "../utils/validation.js";
 
 const router = express.Router();
 
@@ -18,8 +19,20 @@ router.post("/register", async (req, res, next) => {
         .json({ error: "Name, email, and password are required" });
     }
 
+    // Validate email
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ error: emailValidation.error });
+    }
+
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.error });
+    }
+
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: emailValidation.cleaned });
 
     if (existingUser) {
       return res.status(400).json({ error: "Email already registered" });
@@ -29,11 +42,13 @@ router.post("/register", async (req, res, next) => {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Create user
+    // Create user with PG_TENANT role by default
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: emailValidation.cleaned,
       passwordHash,
+      role: "PG_TENANT", // Default role for all registrations
+      onboardingStatus: null, // Will be set when assigned to a property by owner
     });
 
     const navAccess = await getNavForRole(user.role);
@@ -57,23 +72,31 @@ router.post("/register", async (req, res, next) => {
       {
         id: user._id.toString(),
         email: user.email,
-        role: user.role || "CITIZEN",
+        role: user.role || "PG_TENANT",
       },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
+
+    // Determine redirect path - new PG_TENANT users should go to onboarding
+    let redirectTo = null;
+    if (user.role === "PG_TENANT" && user.onboardingStatus !== "completed") {
+      redirectTo = "/tenant/onboarding";
+    }
 
     res.status(201).json({
       user: {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
-        role: user.role || "CITIZEN",
+        role: user.role || "PG_TENANT",
         isActive: user.isActive,
+        onboardingStatus: user.onboardingStatus,
         navAccess,
         assignedProperty,
       },
       token,
+      redirectTo, // Include redirect path for onboarding
     });
   } catch (error) {
     next(error);
@@ -90,8 +113,14 @@ router.post("/login", async (req, res, next) => {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
+    // Validate email
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ error: emailValidation.error });
+    }
+
     // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: emailValidation.cleaned });
 
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
@@ -135,6 +164,17 @@ router.post("/login", async (req, res, next) => {
       { expiresIn: "1h" }
     );
 
+    // Determine redirect path based on role and onboarding status
+    let redirectTo = null;
+    if (user.role === "PG_TENANT") {
+      // Redirect to onboarding if status is not "completed"
+      // This includes: null, "invited", "kyc_pending", "kyc_verified", etc.
+      if (!user.onboardingStatus || user.onboardingStatus !== "completed") {
+        redirectTo = "/tenant/onboarding";
+      }
+      // If completed, redirectTo stays null and frontend will use default route
+    }
+
     res.json({
       user: {
         id: user._id.toString(),
@@ -144,8 +184,10 @@ router.post("/login", async (req, res, next) => {
         isActive: user.isActive,
         navAccess,
         assignedProperty,
+        onboardingStatus: user.onboardingStatus,
       },
       token,
+      redirectTo, // Include redirect path if needed
     });
   } catch (error) {
     next(error);
@@ -164,10 +206,10 @@ router.post("/setup-password", async (req, res, next) => {
       return res.status(400).json({ error: "Token and password are required" });
     }
 
-    if (password.length < 6) {
-      return res
-        .status(400)
-        .json({ error: "Password must be at least 6 characters long" });
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.error });
     }
 
     // Verify token
@@ -544,10 +586,10 @@ router.post("/reset-password", async (req, res, next) => {
       return res.status(400).json({ error: "Token and password are required" });
     }
 
-    if (password.length < 6) {
-      return res
-        .status(400)
-        .json({ error: "Password must be at least 6 characters long" });
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.error });
     }
 
     // Verify token
@@ -658,10 +700,10 @@ router.post("/update-password", async (req, res, next) => {
       return res.status(400).json({ error: "Token and password are required" });
     }
 
-    if (password.length < 6) {
-      return res
-        .status(400)
-        .json({ error: "Password must be at least 6 characters long" });
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.error });
     }
 
     // Verify token

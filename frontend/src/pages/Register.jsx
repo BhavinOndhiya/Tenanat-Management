@@ -4,6 +4,12 @@ import { motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../utils/api";
 import { showToast } from "../utils/toast";
+import {
+  validateEmail,
+  validatePassword,
+  getEmailGuidelines,
+  getPasswordGuidelines,
+} from "../utils/validation";
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -12,6 +18,9 @@ export default function Register() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [hoveredButton, setHoveredButton] = useState(null);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState("weak");
   const { login: storeSession } = useAuth();
   const navigate = useNavigate();
 
@@ -23,34 +32,67 @@ export default function Register() {
     };
   }, []);
 
+  const handleEmailChange = (value) => {
+    setEmail(value);
+    const validation = validateEmail(value);
+    setEmailError(validation.error || "");
+  };
+
+  const handlePasswordChange = (value) => {
+    setPassword(value);
+    const validation = validatePassword(value);
+    setPasswordError(validation.error || "");
+    setPasswordStrength(validation.strength || "weak");
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    if (!name || !email || !password) {
-      setError("Name, email, and password are required");
+    // Validate all fields
+    if (!name || name.trim() === "") {
+      setError("Name is required");
       setLoading(false);
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      setEmailError(emailValidation.error);
+      setError(emailValidation.error);
+      setLoading(false);
+      return;
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      setPasswordError(passwordValidation.error);
+      setError(passwordValidation.error);
       setLoading(false);
       return;
     }
 
     try {
-      const { user, token } = await api.register(name, email, password);
+      const { user, token, redirectTo } = await api.register(
+        name,
+        email,
+        password
+      );
       storeSession(
         {
           ...user,
-          role: user.role || "CITIZEN",
+          role: user.role || "PG_TENANT",
         },
         token
       );
-      showToast.success("Account created! Redirecting you to the dashboard.");
-      navigate(user?.role === "OFFICER" ? "/officer/dashboard" : "/dashboard", {
+      showToast.success("Account created! Redirecting you...");
+      // Use redirectTo from backend if provided (e.g., for PG_TENANT onboarding)
+      // Otherwise use default route for role
+      const destination =
+        redirectTo ||
+        (user?.role === "OFFICER" ? "/officer/dashboard" : "/dashboard");
+      navigate(destination, {
         replace: true,
       });
     } catch (apiError) {
@@ -64,8 +106,141 @@ export default function Register() {
     }
   };
 
+  const handleGoogleSignup = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (!googleClientId) {
+        setError(
+          "Google Sign-In is not configured. Please use email registration."
+        );
+        showToast.error(
+          "Google Sign-In is not configured. Please use email registration."
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (typeof window.google === "undefined") {
+        setError("Google Sign-In is loading. Please wait and try again.");
+        setLoading(false);
+        return;
+      }
+
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async (response) => {
+          try {
+            const { user, token, redirectTo } = await api.loginWithGoogle(
+              response.credential
+            );
+            storeSession(
+              {
+                ...user,
+                role: user.role || "PG_TENANT",
+              },
+              token
+            );
+            showToast.success("Account created! Redirecting you...");
+            const destination =
+              redirectTo ||
+              (user?.role === "OFFICER" ? "/officer/dashboard" : "/dashboard");
+            navigate(destination, { replace: true });
+          } catch (error) {
+            console.error("Google signup error:", error);
+            setError(error.message || "Google signup failed");
+            showToast.error(error.message || "Google signup failed");
+            setLoading(false);
+          }
+        },
+      });
+
+      window.google.accounts.id.prompt();
+    } catch (error) {
+      console.error("Google OAuth setup error:", error);
+      setError(
+        "Google Sign-In is not available. Please use email registration."
+      );
+      showToast.error(
+        "Google Sign-In is not available. Please use email registration."
+      );
+      setLoading(false);
+    }
+  };
+
+  const handleFacebookSignup = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      if (typeof window.FB === "undefined") {
+        setError("Facebook SDK is not available. Please refresh the page.");
+        setLoading(false);
+        return;
+      }
+
+      window.FB.init({
+        appId: import.meta.env.VITE_FACEBOOK_APP_ID,
+        cookie: true,
+        xfbml: true,
+        version: "v18.0",
+      });
+
+      window.FB.login(
+        async (response) => {
+          if (response.authResponse) {
+            try {
+              const { user, token, redirectTo } = await api.loginWithFacebook(
+                response.authResponse.accessToken
+              );
+              storeSession(
+                {
+                  ...user,
+                  role: user.role || "PG_TENANT",
+                },
+                token
+              );
+              showToast.success("Account created! Redirecting you...");
+              const destination =
+                redirectTo ||
+                (user?.role === "OFFICER"
+                  ? "/officer/dashboard"
+                  : "/dashboard");
+              navigate(destination, { replace: true });
+            } catch (error) {
+              console.error("Facebook signup error:", error);
+              setError(error.message || "Facebook signup failed");
+              showToast.error(error.message || "Facebook signup failed");
+              setLoading(false);
+            }
+          } else {
+            setError("Facebook signup was cancelled");
+            showToast.error("Facebook signup was cancelled");
+            setLoading(false);
+          }
+        },
+        { scope: "email,public_profile" }
+      );
+    } catch (error) {
+      console.error("Facebook OAuth setup error:", error);
+      setError(
+        "Facebook Sign-In is not configured. Please use email registration."
+      );
+      showToast.error(
+        "Facebook Sign-In is not configured. Please use email registration."
+      );
+      setLoading(false);
+    }
+  };
+
   const handleOAuthClick = (provider) => {
-    alert(`Signing up with ${provider}`);
+    if (provider.toLowerCase() === "google") {
+      handleGoogleSignup();
+    } else if (provider.toLowerCase() === "facebook") {
+      handleFacebookSignup();
+    }
   };
 
   return (
@@ -147,9 +322,7 @@ export default function Register() {
                     initial={{ x: -5, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     className="absolute right-2 text-lg"
-                  >
-                    
-                  </motion.div>
+                  ></motion.div>
                 )}
               </motion.button>
             </motion.div>
@@ -178,9 +351,7 @@ export default function Register() {
                     initial={{ x: -5, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     className="absolute right-2 text-lg"
-                  >
-                    
-                  </motion.div>
+                  ></motion.div>
                 )}
               </motion.button>
             </motion.div>
@@ -253,13 +424,29 @@ export default function Register() {
                 whileFocus={{ scale: 1.02 }}
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => handleEmailChange(e.target.value)}
+                onBlur={() => {
+                  if (email) {
+                    const validation = validateEmail(email);
+                    setEmailError(validation.error || "");
+                  }
+                }}
                 required
                 disabled={loading}
                 autoComplete="email"
-                placeholder="Enter your email"
-                className="w-full px-5 py-3.5 rounded-2xl border-2 border-gray-300 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Enter your email (e.g., yourname@example.com)"
+                className={`w-full px-5 py-3.5 rounded-2xl border-2 ${
+                  emailError
+                    ? "border-red-300 bg-red-50"
+                    : "border-gray-300 bg-white"
+                } focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
               />
+              {emailError && (
+                <p className="text-xs text-red-600">{emailError}</p>
+              )}
+              {!emailError && email && (
+                <p className="text-xs text-gray-500">{getEmailGuidelines()}</p>
+              )}
             </motion.div>
 
             {/* Password Field */}
@@ -276,17 +463,53 @@ export default function Register() {
                 whileFocus={{ scale: 1.02 }}
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => handlePasswordChange(e.target.value)}
+                onBlur={() => {
+                  if (password) {
+                    const validation = validatePassword(password);
+                    setPasswordError(validation.error || "");
+                    setPasswordStrength(validation.strength || "weak");
+                  }
+                }}
                 required
-                minLength={6}
                 disabled={loading}
                 autoComplete="new-password"
-                placeholder="Create a password"
-                className="w-full px-5 py-3.5 rounded-2xl border-2 border-gray-300 bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                placeholder="Create a strong password"
+                className={`w-full px-5 py-3.5 rounded-2xl border-2 ${
+                  passwordError
+                    ? "border-red-300 bg-red-50"
+                    : passwordStrength === "strong"
+                    ? "border-green-300 bg-green-50"
+                    : passwordStrength === "medium"
+                    ? "border-yellow-300 bg-yellow-50"
+                    : "border-gray-300 bg-white"
+                } focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 placeholder:text-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
               />
-              <p className="text-xs text-gray-500">
-                Must be at least 6 characters long
-              </p>
+              {passwordError && (
+                <p className="text-xs text-red-600">{passwordError}</p>
+              )}
+              {!passwordError && password && (
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500 whitespace-pre-line">
+                    {getPasswordGuidelines()}
+                  </p>
+                  {passwordStrength === "strong" && (
+                    <p className="text-xs text-green-600 font-semibold">
+                      ✓ Strong password
+                    </p>
+                  )}
+                  {passwordStrength === "medium" && (
+                    <p className="text-xs text-yellow-600 font-semibold">
+                      ⚠ Medium strength - consider adding more characters
+                    </p>
+                  )}
+                </div>
+              )}
+              {!password && (
+                <p className="text-xs text-gray-500 whitespace-pre-line">
+                  {getPasswordGuidelines()}
+                </p>
+              )}
             </motion.div>
 
             {/* Submit Button */}
@@ -311,9 +534,7 @@ export default function Register() {
                     initial={{ x: -10, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     className="absolute right-6 text-lg"
-                  >
-                    
-                  </motion.div>
+                  ></motion.div>
                 )}
               </button>
             </motion.div>

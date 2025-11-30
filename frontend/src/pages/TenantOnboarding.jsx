@@ -4,6 +4,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { api } from "../utils/api";
 import { showToast } from "../utils/toast";
 import { useAuth } from "../context/AuthContext";
+import {
+  validateEmail,
+  validatePhone,
+  formatPhone,
+  validateIDNumber,
+  formatIDNumber,
+  getEmailGuidelines,
+  getPhoneGuidelines,
+  getAadharGuidelines,
+  getPANGuidelines,
+} from "../utils/validation";
 
 const STEPS = {
   PG_DETAILS: 1,
@@ -48,6 +59,9 @@ export default function TenantOnboarding() {
   const [agreementHtml, setAgreementHtml] = useState(null);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
 
+  // Validation errors
+  const [validationErrors, setValidationErrors] = useState({});
+
   useEffect(() => {
     // Check if user is already onboarded
     if (user?.onboardingStatus === "completed") {
@@ -89,12 +103,79 @@ export default function TenantOnboarding() {
     }
   };
 
+  const handlePhoneChange = (value) => {
+    const formatted = formatPhone(value);
+    setKycForm({ ...kycForm, phone: formatted });
+    const validation = validatePhone(formatted);
+    setValidationErrors({
+      ...validationErrors,
+      phone: validation.error || null,
+    });
+  };
+
+  const handleEmailChange = (value) => {
+    setKycForm({ ...kycForm, email: value });
+    const validation = validateEmail(value);
+    setValidationErrors({
+      ...validationErrors,
+      email: validation.error || null,
+    });
+  };
+
+  const handleIDNumberChange = (value) => {
+    const formatted = formatIDNumber(kycForm.idType, value);
+    setKycForm({ ...kycForm, idNumber: formatted });
+    const validation = validateIDNumber(kycForm.idType, formatted);
+    setValidationErrors({
+      ...validationErrors,
+      idNumber: validation.error || null,
+    });
+  };
+
   const handleKycSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
 
+    // Validate all fields
+    const errors = {};
+
+    // Validate phone
+    const phoneValidation = validatePhone(kycForm.phone);
+    if (!phoneValidation.valid) {
+      errors.phone = phoneValidation.error;
+    }
+
+    // Validate email
+    const emailValidation = validateEmail(kycForm.email);
+    if (!emailValidation.valid) {
+      errors.email = emailValidation.error;
+    }
+
+    // Validate ID number
+    const idValidation = validateIDNumber(kycForm.idType, kycForm.idNumber);
+    if (!idValidation.valid) {
+      errors.idNumber = idValidation.error;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      setSubmitting(false);
+      showToast.error("Please fix the validation errors before submitting");
+      return;
+    }
+
     try {
-      const result = await api.submitTenantKyc(kycForm);
+      // Clean the ID number before sending (remove spaces)
+      const cleanedIdNumber = kycForm.idNumber.replace(/\s/g, "");
+      const cleanedPhone = kycForm.phone.replace(/\D/g, "");
+
+      const formData = {
+        ...kycForm,
+        idNumber: cleanedIdNumber,
+        phone: cleanedPhone,
+      };
+
+      const result = await api.submitTenantKyc(formData);
 
       if (result.success) {
         showToast.success("eKYC verification successful!");
@@ -461,11 +542,33 @@ export default function TenantOnboarding() {
                       type="tel"
                       required
                       value={kycForm.phone}
-                      onChange={(e) =>
-                        setKycForm({ ...kycForm, phone: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      onChange={(e) => handlePhoneChange(e.target.value)}
+                      onBlur={() => {
+                        if (kycForm.phone) {
+                          const validation = validatePhone(kycForm.phone);
+                          setValidationErrors({
+                            ...validationErrors,
+                            phone: validation.error || null,
+                          });
+                        }
+                      }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                        validationErrors.phone
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="98765 43210"
                     />
+                    {validationErrors.phone && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {validationErrors.phone}
+                      </p>
+                    )}
+                    {!validationErrors.phone && kycForm.phone && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {getPhoneGuidelines()}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -475,11 +578,33 @@ export default function TenantOnboarding() {
                       type="email"
                       required
                       value={kycForm.email}
-                      onChange={(e) =>
-                        setKycForm({ ...kycForm, email: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      onChange={(e) => handleEmailChange(e.target.value)}
+                      onBlur={() => {
+                        if (kycForm.email) {
+                          const validation = validateEmail(kycForm.email);
+                          setValidationErrors({
+                            ...validationErrors,
+                            email: validation.error || null,
+                          });
+                        }
+                      }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                        validationErrors.email
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="yourname@example.com"
                     />
+                    {validationErrors.email && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {validationErrors.email}
+                      </p>
+                    )}
+                    {!validationErrors.email && kycForm.email && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {getEmailGuidelines()}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -545,9 +670,17 @@ export default function TenantOnboarding() {
                     <select
                       required
                       value={kycForm.idType}
-                      onChange={(e) =>
-                        setKycForm({ ...kycForm, idType: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setKycForm({
+                          ...kycForm,
+                          idType: e.target.value,
+                          idNumber: "", // Clear ID number when type changes
+                        });
+                        setValidationErrors({
+                          ...validationErrors,
+                          idNumber: null,
+                        });
+                      }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="AADHAAR">Aadhaar</option>
@@ -565,11 +698,46 @@ export default function TenantOnboarding() {
                       type="text"
                       required
                       value={kycForm.idNumber}
-                      onChange={(e) =>
-                        setKycForm({ ...kycForm, idNumber: e.target.value })
+                      onChange={(e) => handleIDNumberChange(e.target.value)}
+                      onBlur={() => {
+                        if (kycForm.idNumber) {
+                          const validation = validateIDNumber(
+                            kycForm.idType,
+                            kycForm.idNumber
+                          );
+                          setValidationErrors({
+                            ...validationErrors,
+                            idNumber: validation.error || null,
+                          });
+                        }
+                      }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                        validationErrors.idNumber
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-300"
+                      }`}
+                      placeholder={
+                        kycForm.idType === "AADHAAR"
+                          ? "1234 5678 9012"
+                          : kycForm.idType === "PAN"
+                          ? "ABCDE1234F"
+                          : "Enter ID number"
                       }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
+                    {validationErrors.idNumber && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {validationErrors.idNumber}
+                      </p>
+                    )}
+                    {!validationErrors.idNumber && kycForm.idNumber && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {kycForm.idType === "AADHAAR"
+                          ? getAadharGuidelines()
+                          : kycForm.idType === "PAN"
+                          ? getPANGuidelines()
+                          : "Enter your ID number"}
+                      </p>
+                    )}
                   </div>
                 </div>
 

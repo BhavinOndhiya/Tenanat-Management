@@ -35,7 +35,7 @@ export default function Login() {
     }
 
     try {
-      const { user, token } = await api.login(email, password);
+      const { user, token, redirectTo } = await api.login(email, password);
       storeSession(
         {
           ...user,
@@ -46,7 +46,9 @@ export default function Login() {
       showToast.success(
         `Welcome back${user?.name ? `, ${user.name.split(" ")[0]}` : ""}!`
       );
-      const destination = getDefaultRouteForRole(user?.role);
+      // Use redirectTo from backend if provided (e.g., for PG_TENANT onboarding)
+      // Otherwise use default route for role
+      const destination = redirectTo || getDefaultRouteForRole(user?.role);
       navigate(destination, { replace: true });
     } catch (apiError) {
       const message =
@@ -59,8 +61,141 @@ export default function Login() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      // Check if Google Client ID is configured
+      const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (!googleClientId) {
+        setError("Google Sign-In is not configured. Please use email login.");
+        showToast.error(
+          "Google Sign-In is not configured. Please use email login."
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Initialize Google Identity Services
+      if (typeof window.google === "undefined") {
+        setError("Google Sign-In is loading. Please wait and try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Use Google Sign-In button flow
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async (response) => {
+          try {
+            // response.credential is the ID token
+            const { user, token, redirectTo } = await api.loginWithGoogle(
+              response.credential
+            );
+            storeSession(
+              {
+                ...user,
+                role: user.role || "PG_TENANT",
+              },
+              token
+            );
+            showToast.success(
+              `Welcome${user?.name ? `, ${user.name.split(" ")[0]}` : ""}!`
+            );
+            const destination =
+              redirectTo || getDefaultRouteForRole(user?.role);
+            navigate(destination, { replace: true });
+          } catch (error) {
+            console.error("Google login error:", error);
+            setError(error.message || "Google login failed");
+            showToast.error(error.message || "Google login failed");
+            setLoading(false);
+          }
+        },
+      });
+
+      // Trigger sign-in popup
+      window.google.accounts.id.prompt();
+    } catch (error) {
+      console.error("Google OAuth setup error:", error);
+      setError("Google Sign-In is not available. Please use email login.");
+      showToast.error(
+        "Google Sign-In is not available. Please use email login."
+      );
+      setLoading(false);
+    }
+  };
+
+  const handleFacebookLogin = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      // Initialize Facebook SDK
+      if (typeof window.FB === "undefined") {
+        setError("Facebook SDK is not available. Please refresh the page.");
+        setLoading(false);
+        return;
+      }
+
+      window.FB.init({
+        appId: import.meta.env.VITE_FACEBOOK_APP_ID,
+        cookie: true,
+        xfbml: true,
+        version: "v18.0",
+      });
+
+      window.FB.login(
+        async (response) => {
+          if (response.authResponse) {
+            try {
+              const { user, token, redirectTo } = await api.loginWithFacebook(
+                response.authResponse.accessToken
+              );
+              storeSession(
+                {
+                  ...user,
+                  role: user.role || "PG_TENANT",
+                },
+                token
+              );
+              showToast.success(
+                `Welcome${user?.name ? `, ${user.name.split(" ")[0]}` : ""}!`
+              );
+              const destination =
+                redirectTo || getDefaultRouteForRole(user?.role);
+              navigate(destination, { replace: true });
+            } catch (error) {
+              console.error("Facebook login error:", error);
+              setError(error.message || "Facebook login failed");
+              showToast.error(error.message || "Facebook login failed");
+              setLoading(false);
+            }
+          } else {
+            setError("Facebook login was cancelled");
+            showToast.error("Facebook login was cancelled");
+            setLoading(false);
+          }
+        },
+        { scope: "email,public_profile" }
+      );
+    } catch (error) {
+      console.error("Facebook OAuth setup error:", error);
+      setError("Facebook Sign-In is not configured. Please use email login.");
+      showToast.error(
+        "Facebook Sign-In is not configured. Please use email login."
+      );
+      setLoading(false);
+    }
+  };
+
   const handleOAuthClick = (provider) => {
-    alert(`Signing in with ${provider}`);
+    if (provider.toLowerCase() === "google") {
+      handleGoogleLogin();
+    } else if (provider.toLowerCase() === "facebook") {
+      handleFacebookLogin();
+    }
   };
 
   return (

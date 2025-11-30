@@ -15,6 +15,7 @@ import pgTenantRoutes from "./pgTenant.js";
 import tenantOnboardingRoutes from "./tenantOnboarding.js";
 import testEmailRoutes from "./testEmail.js";
 import documentsRoutes from "./documents.js";
+import oauthRoutes from "./oauth.js";
 import { authenticateToken } from "../middleware/auth.js";
 import User from "../models/User.js";
 import { getNavForRole } from "../utils/roleAccess.js";
@@ -83,6 +84,7 @@ router.get("/me", authenticateToken, async (req, res, next) => {
 });
 
 router.use("/auth", authRoutes);
+router.use("/auth", oauthRoutes);
 router.use("/complaints", complaintRoutes);
 router.use("/officer", officerRoutes);
 router.use("/profile", profileRoutes);

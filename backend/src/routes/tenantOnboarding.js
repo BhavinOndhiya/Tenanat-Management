@@ -166,6 +166,28 @@ router.post(
         });
       }
 
+      // Validate email if provided
+      if (email) {
+        const emailValidation = validateEmail(email);
+        if (!emailValidation.valid) {
+          return res.status(400).json({ error: emailValidation.error });
+        }
+      }
+
+      // Validate phone if provided
+      if (phone) {
+        const phoneValidation = validatePhone(phone);
+        if (!phoneValidation.valid) {
+          return res.status(400).json({ error: phoneValidation.error });
+        }
+      }
+
+      // Validate ID number
+      const idValidation = validateIDNumber(idType, idNumber);
+      if (!idValidation.valid) {
+        return res.status(400).json({ error: idValidation.error });
+      }
+
       // Check if files were uploaded (optional for mock)
       const idFrontFile = req.files?.idFront?.[0];
       const idBackFile = req.files?.idBack?.[0];
@@ -212,7 +234,12 @@ router.post(
         // Parse address if needed or store as string
         user.address = { ...user.address, street: permanentAddress };
       }
-      if (phone) user.phone = phone.trim();
+      if (phone) {
+        const phoneValidation = validatePhone(phone);
+        if (phoneValidation.valid) {
+          user.phone = phoneValidation.cleaned;
+        }
+      }
       if (occupation)
         user.personalDetails = { ...user.personalDetails, occupation };
 
@@ -240,19 +267,30 @@ router.post(
       }
 
       // Store KYC data for document generation
+      const cleanedPhone = phone
+        ? validatePhone(phone).valid
+          ? validatePhone(phone).cleaned
+          : phone.trim()
+        : user.phone || "";
+      const cleanedEmail = email
+        ? validateEmail(email).valid
+          ? validateEmail(email).cleaned
+          : email.trim()
+        : user.email || "";
+
       user.kycData = {
         ...user.kycData,
         fullName: fullName.trim(),
         dateOfBirth: new Date(dateOfBirth),
         gender,
         fatherMotherName: fatherMotherName?.trim() || "",
-        phone: phone?.trim() || user.phone || "",
-        email: email?.trim() || user.email || "",
+        phone: cleanedPhone,
+        email: cleanedEmail,
         permanentAddress: permanentAddress.trim(),
         occupation: occupation?.trim() || "",
         companyCollegeName: companyCollegeName?.trim() || "",
         idType,
-        idNumber: idNumber.trim(),
+        idNumber: idValidation.cleaned || idNumber.trim(),
       };
 
       await user.save();

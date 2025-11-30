@@ -1337,9 +1337,12 @@ router.post("/pg/tenants", async (req, res, next) => {
 
     // Get frontend URL for password setup/update links
     const frontendUrl = process.env.FRONTEND_URL;
-    const passwordSetupUrl = requiresPasswordSetup
-      ? `${frontendUrl}/auth/setup-password?token=${setupToken}`
-      : null;
+    // Only send password setup URL for new users who need password setup
+    // Existing users should login with their existing account
+    const passwordSetupUrl =
+      isNewUser && requiresPasswordSetup
+        ? `${frontendUrl}/auth/setup-password?token=${setupToken}`
+        : null;
 
     // Generate password update token for tenant (valid for 24 hours)
     const jwt = (await import("jsonwebtoken")).default;
@@ -1366,8 +1369,8 @@ router.post("/pg/tenants", async (req, res, next) => {
       monthlyRent: profile.monthlyRent,
       services: profile.servicesIncluded,
       loginEmail: tenantUser.email,
-      password: requiresPasswordSetup ? null : finalPassword, // Send password if provided, otherwise null
-      passwordSetupUrl: passwordSetupUrl, // Send setup link if password setup required
+      password: isNewUser && !requiresPasswordSetup ? finalPassword : null, // Only send password for new users with provided password
+      passwordSetupUrl: passwordSetupUrl, // Only for new users who need password setup
       passwordUpdateUrl: passwordUpdateUrl, // Always include password update link
       isNewUser: isNewUser,
       sharingType: profile.sharingType,

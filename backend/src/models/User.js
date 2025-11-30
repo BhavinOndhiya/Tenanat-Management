@@ -15,7 +15,20 @@ const userSchema = new mongoose.Schema(
     },
     passwordHash: {
       type: String,
-      required: true,
+      required: function () {
+        // Only required if user is not using OAuth
+        return !this.oauthProvider;
+      },
+    },
+    // OAuth fields
+    oauthProvider: {
+      type: String,
+      enum: ["GOOGLE", "FACEBOOK"],
+      default: null,
+    },
+    oauthId: {
+      type: String,
+      default: null,
     },
     role: {
       type: String,
@@ -164,8 +177,8 @@ const userSchema = new mongoose.Schema(
         idType: String,
         idNumber: String,
         idFrontUrl: String, // URL to uploaded ID front
-        idBackUrl: String,  // URL to uploaded ID back
-        selfieUrl: String,  // URL to uploaded selfie
+        idBackUrl: String, // URL to uploaded ID back
+        selfieUrl: String, // URL to uploaded selfie
       },
       default: null,
     },
