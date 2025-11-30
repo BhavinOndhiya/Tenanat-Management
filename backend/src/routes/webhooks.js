@@ -280,7 +280,7 @@ router.post(
                     "0"
                   )}-${paymentRecord._id.toString().slice(-6).toUpperCase()}`;
 
-                  // Send to tenant
+                  // Send to tenant - FIRST EMAIL (keep this one)
                   await sendPaymentReceiptToTenant({
                     tenantName: tenant.name,
                     ownerName: owner.name,
@@ -300,25 +300,7 @@ router.post(
                     tenantEmail: tenant.email,
                   });
 
-                  // Send to owner
-                  await sendPaymentReceiptToOwner({
-                    ownerName: owner.name,
-                    tenantName: tenant.name,
-                    tenantEmail: tenant.email,
-                    propertyName:
-                      property.name || property.buildingName || "PG Property",
-                    invoiceNumber,
-                    periodLabel,
-                    totalAmount: paymentRecord.amount,
-                    baseAmount: paymentRecord.baseAmount || 0,
-                    securityDeposit: paymentRecord.securityDeposit || 0,
-                    joiningFee: paymentRecord.joiningFee || 0,
-                    otherCharges: paymentRecord.otherCharges || [],
-                    lateFeeAmount: paymentRecord.lateFeeAmount || 0,
-                    paidAt: paymentRecord.paidAt || new Date(),
-                    invoiceUrl: invoiceResult.url,
-                    ownerEmail: owner.email,
-                  });
+                  // Send to owner - REMOVED: Owner receives email from verify route (second email with 3 PDFs)
 
                   console.log(
                     `[Webhook] ✅ Payment receipt emails sent to tenant and owner`

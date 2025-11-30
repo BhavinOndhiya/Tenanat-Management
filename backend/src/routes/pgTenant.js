@@ -671,24 +671,8 @@ router.post("/payments/:paymentId/verify", async (req, res, next) => {
                     .slice(-6)
                     .toUpperCase()}`;
 
-                  // Send to tenant
-                  await sendPaymentReceiptToTenant({
-                    tenantName: tenant.name,
-                    ownerName: owner.name,
-                    propertyName:
-                      property.name || property.buildingName || "PG Property",
-                    invoiceNumber,
-                    periodLabel,
-                    totalAmount: payment.amount,
-                    baseAmount: payment.baseAmount || 0,
-                    securityDeposit: payment.securityDeposit || 0,
-                    joiningFee: payment.joiningFee || 0,
-                    otherCharges: payment.otherCharges || [],
-                    lateFeeAmount: payment.lateFeeAmount || 0,
-                    paidAt: payment.paidAt || new Date(),
-                    invoiceUrl: invoiceResult.url,
-                    tenantEmail: tenant.email,
-                  });
+                  // Send to tenant - REMOVED: Tenant receives email from webhook (first email)
+                  // Only send to owner from verify route (second email with 3 PDFs)
 
                   // Send to owner
                   await sendPaymentReceiptToOwner({
@@ -777,24 +761,8 @@ router.post("/payments/:paymentId/verify", async (req, res, next) => {
                   .slice(-6)
                   .toUpperCase()}`;
 
-                // Send to tenant
-                await sendPaymentReceiptToTenant({
-                  tenantName: tenant.name,
-                  ownerName: owner.name,
-                  propertyName:
-                    property.name || property.buildingName || "PG Property",
-                  invoiceNumber,
-                  periodLabel,
-                  totalAmount: payment.amount,
-                  baseAmount: payment.baseAmount || 0,
-                  securityDeposit: payment.securityDeposit || 0,
-                  joiningFee: payment.joiningFee || 0,
-                  otherCharges: payment.otherCharges || [],
-                  lateFeeAmount: payment.lateFeeAmount || 0,
-                  paidAt: payment.paidAt || new Date(),
-                  invoiceUrl: payment.invoicePdfUrl,
-                  tenantEmail: tenant.email,
-                });
+                // Send to tenant - REMOVED: Tenant receives email from webhook (first email)
+                // Only send to owner from verify route (second email with 3 PDFs)
 
                 // Send to owner
                 await sendPaymentReceiptToOwner({
