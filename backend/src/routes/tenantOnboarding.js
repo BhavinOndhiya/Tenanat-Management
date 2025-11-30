@@ -14,6 +14,11 @@ import {
   sendOnboardingDocumentsEmail,
   isEmailConfigured,
 } from "../services/notificationService.js";
+import {
+  validateEmail,
+  validatePhone,
+  validateIDNumber,
+} from "../utils/validation.js";
 
 const router = express.Router();
 
@@ -171,9 +176,9 @@ router.post(
         });
       }
 
-      // Validate email if provided
+      // Validate email if provided (Gmail only for KYC)
       if (email) {
-        const emailValidation = validateEmail(email);
+        const emailValidation = validateEmail(email, true); // Gmail only
         if (!emailValidation.valid) {
           return res.status(400).json({ error: emailValidation.error });
         }

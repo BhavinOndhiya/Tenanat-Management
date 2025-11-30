@@ -6,16 +6,29 @@
 /**
  * Validates email address
  * @param {string} email - Email to validate
+ * @param {boolean} gmailOnly - If true, only Gmail addresses are allowed
  * @returns {object} - { valid: boolean, error: string }
  */
-export function validateEmail(email) {
+export function validateEmail(email, gmailOnly = false) {
   if (!email || typeof email !== "string" || email.trim() === "") {
     return { valid: false, error: "Email is required" };
   }
 
   const trimmedEmail = email.trim().toLowerCase();
 
-  // Email regex pattern
+  // Gmail-only validation for KYC
+  if (gmailOnly) {
+    const gmailRegex = /^[a-zA-Z0-9](\.?[a-zA-Z0-9_+-]){2,}@gmail\.com$/;
+    if (!gmailRegex.test(trimmedEmail)) {
+      return {
+        valid: false,
+        error: "Enter a valid Gmail address (example@gmail.com)",
+      };
+    }
+    return { valid: true, error: null, cleaned: trimmedEmail };
+  }
+
+  // General email validation (for other forms)
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (!emailRegex.test(trimmedEmail)) {
@@ -51,20 +64,20 @@ export function validatePhone(phone) {
     phoneNumber = digitsOnly.substring(2);
   }
 
-  // Indian phone number should be 10 digits
+  // Indian phone number should be exactly 10 digits
   if (phoneNumber.length !== 10) {
     return {
       valid: false,
-      error: "Phone number must be 10 digits (e.g., 9876543210)",
+      error: "Enter a valid 10-digit mobile number",
     };
   }
 
   // Check if it starts with valid Indian mobile prefix (6, 7, 8, 9)
-  const firstDigit = phoneNumber[0];
-  if (!["6", "7", "8", "9"].includes(firstDigit)) {
+  const mobileRegex = /^[6-9][0-9]{9}$/;
+  if (!mobileRegex.test(phoneNumber)) {
     return {
       valid: false,
-      error: "Phone number must start with 6, 7, 8, or 9",
+      error: "Mobile number must start with 6, 7, 8, or 9",
     };
   }
 
@@ -147,27 +160,19 @@ export function validateAadhar(aadhar) {
   // Remove all spaces and non-digit characters
   const digitsOnly = aadhar.replace(/\D/g, "");
 
-  // Aadhar must be exactly 12 digits
+  // Aadhaar must be exactly 12 digits
   if (digitsOnly.length !== 12) {
     return {
       valid: false,
-      error: "Aadhar number must be exactly 12 digits",
+      error: "Aadhaar number must be exactly 12 digits (1234 5678 9012)",
     };
   }
 
-  // Aadhar should not start with 0 or 1
-  if (digitsOnly[0] === "0" || digitsOnly[0] === "1") {
+  // Validate with regex
+  if (!/^[0-9]{12}$/.test(digitsOnly)) {
     return {
       valid: false,
-      error: "Aadhar number cannot start with 0 or 1",
-    };
-  }
-
-  // Check for invalid patterns (all same digits)
-  if (/^(\d)\1{11}$/.test(digitsOnly)) {
-    return {
-      valid: false,
-      error: "Aadhar number cannot be all the same digit",
+      error: "Aadhaar number must contain only digits",
     };
   }
 
@@ -218,13 +223,21 @@ export function validateDrivingLicense(dl) {
     return { valid: false, error: "Driving License number is required" };
   }
 
-  const cleaned = dl.replace(/\s/g, "").toUpperCase();
+  const cleaned = dl.replace(/[\s-]/g, "").toUpperCase();
 
-  // Indian DL format varies by state, but generally 15-16 characters
-  if (cleaned.length < 10 || cleaned.length > 20) {
+  // Indian DL format varies by state, 10-16 characters
+  if (cleaned.length < 10 || cleaned.length > 16) {
     return {
       valid: false,
-      error: "Driving License number must be between 10-20 characters",
+      error: "Driving License number must be between 10-16 characters",
+    };
+  }
+
+  // Only letters and digits allowed
+  if (!/^[A-Z0-9]{10,16}$/.test(cleaned)) {
+    return {
+      valid: false,
+      error: "Driving License must contain only letters and digits",
     };
   }
 

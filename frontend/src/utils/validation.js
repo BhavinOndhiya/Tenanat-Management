@@ -4,19 +4,34 @@
  */
 
 /**
- * Validates email address
+ * Validates email address (Gmail only for KYC)
  * @param {string} email - Email to validate
+ * @param {boolean} gmailOnly - If true, only Gmail addresses are allowed
  * @returns {object} - { valid: boolean, error: string }
  */
-export function validateEmail(email) {
+export function validateEmail(email, gmailOnly = false) {
   if (!email || email.trim() === "") {
     return { valid: false, error: "Email is required" };
   }
 
-  // Email regex pattern
+  const trimmedEmail = email.trim().toLowerCase();
+
+  // Gmail-only validation for KYC
+  if (gmailOnly) {
+    const gmailRegex = /^[a-zA-Z0-9](\.?[a-zA-Z0-9_+-]){2,}@gmail\.com$/;
+    if (!gmailRegex.test(trimmedEmail)) {
+      return {
+        valid: false,
+        error: "Enter a valid Gmail address (example@gmail.com)",
+      };
+    }
+    return { valid: true, error: null };
+  }
+
+  // General email validation (for other forms)
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!emailRegex.test(email)) {
+  if (!emailRegex.test(trimmedEmail)) {
     return { valid: false, error: "Please enter a valid email address" };
   }
 
@@ -38,7 +53,7 @@ export function validateEmail(email) {
     "gmx.com",
   ];
 
-  const domain = email.split("@")[1]?.toLowerCase();
+  const domain = trimmedEmail.split("@")[1]?.toLowerCase();
   if (domain && !allowedDomains.includes(domain)) {
     // Allow custom domains but warn
     const customDomainRegex =
@@ -49,6 +64,19 @@ export function validateEmail(email) {
   }
 
   return { valid: true, error: null };
+}
+
+/**
+ * Validates Gmail address specifically
+ * @param {string} email - Email to validate
+ * @returns {object} - { valid: boolean, error: string }
+ */
+export function isValidGmail(email) {
+  if (!email || email.trim() === "") {
+    return false;
+  }
+  const gmailRegex = /^[a-zA-Z0-9](\.?[a-zA-Z0-9_+-]){2,}@gmail\.com$/;
+  return gmailRegex.test(email.trim().toLowerCase());
 }
 
 /**
@@ -72,24 +100,36 @@ export function validatePhone(phone) {
     phoneNumber = digitsOnly.substring(2);
   }
 
-  // Indian phone number should be 10 digits
+  // Indian phone number should be exactly 10 digits
   if (phoneNumber.length !== 10) {
     return {
       valid: false,
-      error: "Phone number must be 10 digits (e.g., 9876543210)",
+      error: "Enter a valid 10-digit mobile number",
     };
   }
 
   // Check if it starts with valid Indian mobile prefix (6, 7, 8, 9)
-  const firstDigit = phoneNumber[0];
-  if (!["6", "7", "8", "9"].includes(firstDigit)) {
+  const mobileRegex = /^[6-9][0-9]{9}$/;
+  if (!mobileRegex.test(phoneNumber)) {
     return {
       valid: false,
-      error: "Phone number must start with 6, 7, 8, or 9",
+      error: "Mobile number must start with 6, 7, 8, or 9",
     };
   }
 
   return { valid: true, error: null, cleaned: phoneNumber };
+}
+
+/**
+ * Validates mobile number (strict Indian format)
+ * @param {string} phone - Phone number to validate
+ * @returns {boolean} - true if valid
+ */
+export function isValidMobile(phone) {
+  if (!phone) return false;
+  const digitsOnly = phone.replace(/\D/g, "");
+  const mobileRegex = /^[6-9][0-9]{9}$/;
+  return mobileRegex.test(digitsOnly);
 }
 
 /**
@@ -205,39 +245,31 @@ export function validatePassword(password) {
 }
 
 /**
- * Validates Aadhar number
- * @param {string} aadhar - Aadhar number to validate
+ * Validates Aadhaar number
+ * @param {string} aadhar - Aadhaar number to validate
  * @returns {object} - { valid: boolean, error: string, cleaned: string }
  */
 export function validateAadhar(aadhar) {
   if (!aadhar || aadhar.trim() === "") {
-    return { valid: false, error: "Aadhar number is required" };
+    return { valid: false, error: "Aadhaar number is required" };
   }
 
   // Remove all spaces and non-digit characters
   const digitsOnly = aadhar.replace(/\D/g, "");
 
-  // Aadhar must be exactly 12 digits
+  // Aadhaar must be exactly 12 digits
   if (digitsOnly.length !== 12) {
     return {
       valid: false,
-      error: "Aadhar number must be exactly 12 digits",
+      error: "Aadhaar number must be exactly 12 digits (1234 5678 9012)",
     };
   }
 
-  // Aadhar should not start with 0 or 1
-  if (digitsOnly[0] === "0" || digitsOnly[0] === "1") {
+  // Validate with regex
+  if (!/^[0-9]{12}$/.test(digitsOnly)) {
     return {
       valid: false,
-      error: "Aadhar number cannot start with 0 or 1",
-    };
-  }
-
-  // Check for invalid patterns (all same digits)
-  if (/^(\d)\1{11}$/.test(digitsOnly)) {
-    return {
-      valid: false,
-      error: "Aadhar number cannot be all the same digit",
+      error: "Aadhaar number must contain only digits",
     };
   }
 
@@ -245,30 +277,29 @@ export function validateAadhar(aadhar) {
 }
 
 /**
- * Formats Aadhar number for display (adds spaces after every 4 digits)
- * @param {string} aadhar - Aadhar number to format
- * @returns {string} - Formatted Aadhar number (XXXX XXXX XXXX)
+ * Formats Aadhaar number for display (adds spaces after every 4 digits)
+ * @param {string} aadhar - Aadhaar number to format
+ * @returns {string} - Formatted Aadhaar number (1234 5678 9012)
  */
 export function formatAadhar(aadhar) {
   if (!aadhar) return "";
 
-  // Remove all non-digit characters
-  const digitsOnly = aadhar.replace(/\D/g, "");
+  // Keep only digits
+  const digits = aadhar.replace(/\D/g, "").slice(0, 12);
 
-  // Limit to 12 digits
-  const limited = digitsOnly.substring(0, 12);
+  // Group into 4-4-4
+  return digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+}
 
-  // Format as XXXX XXXX XXXX
-  if (limited.length <= 4) {
-    return limited;
-  } else if (limited.length <= 8) {
-    return `${limited.substring(0, 4)} ${limited.substring(4)}`;
-  } else {
-    return `${limited.substring(0, 4)} ${limited.substring(
-      4,
-      8
-    )} ${limited.substring(8)}`;
-  }
+/**
+ * Validates Aadhaar number (exactly 12 digits)
+ * @param {string} value - Aadhaar number to validate
+ * @returns {boolean} - true if valid
+ */
+export function isValidAadhaar(value) {
+  if (!value) return false;
+  const digits = value.replace(/\s/g, "");
+  return /^[0-9]{12}$/.test(digits);
 }
 
 /**
@@ -306,30 +337,25 @@ export function validatePAN(pan) {
 }
 
 /**
- * Formats PAN number for display (uppercase, adds space)
+ * Formats PAN number for display (uppercase, no spaces)
  * @param {string} pan - PAN number to format
- * @returns {string} - Formatted PAN number
+ * @returns {string} - Formatted PAN number (uppercase, no spaces)
  */
 export function formatPAN(pan) {
   if (!pan) return "";
-
   // Remove all spaces and convert to uppercase
-  const cleaned = pan.replace(/\s/g, "").toUpperCase();
+  return pan.replace(/\s/g, "").toUpperCase().slice(0, 10);
+}
 
-  // Limit to 10 characters
-  const limited = cleaned.substring(0, 10);
-
-  // Format as ABCDE 1234 F
-  if (limited.length <= 5) {
-    return limited;
-  } else if (limited.length <= 9) {
-    return `${limited.substring(0, 5)} ${limited.substring(5)}`;
-  } else {
-    return `${limited.substring(0, 5)} ${limited.substring(
-      5,
-      9
-    )} ${limited.substring(9)}`;
-  }
+/**
+ * Validates PAN number (exactly 10 characters: AAAAA9999A)
+ * @param {string} value - PAN number to validate
+ * @returns {boolean} - true if valid
+ */
+export function isValidPAN(value) {
+  if (!value) return false;
+  const cleaned = value.replace(/\s/g, "").toUpperCase();
+  return /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(cleaned);
 }
 
 /**
@@ -342,18 +368,36 @@ export function validateDrivingLicense(dl) {
     return { valid: false, error: "Driving License number is required" };
   }
 
-  const cleaned = dl.replace(/\s/g, "").toUpperCase();
+  const cleaned = dl.replace(/[\s-]/g, "").toUpperCase();
 
-  // Indian DL format varies by state, but generally 15-16 characters
-  // Common format: XX-YYYYYYYYYY or similar
-  if (cleaned.length < 10 || cleaned.length > 20) {
+  // Indian DL format varies by state, 10-16 characters
+  if (cleaned.length < 10 || cleaned.length > 16) {
     return {
       valid: false,
-      error: "Driving License number must be between 10-20 characters",
+      error: "Driving License number must be between 10-16 characters",
+    };
+  }
+
+  // Only letters and digits allowed
+  if (!/^[A-Z0-9]{10,16}$/.test(cleaned)) {
+    return {
+      valid: false,
+      error: "Driving License must contain only letters and digits",
     };
   }
 
   return { valid: true, error: null, cleaned };
+}
+
+/**
+ * Validates Driving License number (generic India format)
+ * @param {string} value - Driving License number to validate
+ * @returns {boolean} - true if valid
+ */
+export function isValidDL(value) {
+  if (!value) return false;
+  const cleaned = value.replace(/[\s-]/g, "").toUpperCase();
+  return /^[A-Z0-9]{10,16}$/.test(cleaned);
 }
 
 /**
@@ -464,9 +508,13 @@ export function getPasswordGuidelines() {
 
 /**
  * Gets email guidelines text
+ * @param {boolean} gmailOnly - If true, returns Gmail-specific guidelines
  * @returns {string} - Email guidelines
  */
-export function getEmailGuidelines() {
+export function getEmailGuidelines(gmailOnly = false) {
+  if (gmailOnly) {
+    return "Enter a valid Gmail address (example@gmail.com)";
+  }
   return "Please enter a valid email address (e.g., yourname@example.com)";
 }
 

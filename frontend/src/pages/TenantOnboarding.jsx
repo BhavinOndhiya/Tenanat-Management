@@ -10,10 +10,17 @@ import {
   formatPhone,
   validateIDNumber,
   formatIDNumber,
+  formatAadhar,
+  formatPAN,
   getEmailGuidelines,
   getPhoneGuidelines,
   getAadharGuidelines,
   getPANGuidelines,
+  isValidAadhaar,
+  isValidPAN,
+  isValidDL,
+  isValidGmail,
+  isValidMobile,
 } from "../utils/validation";
 
 const STEPS = {
@@ -125,8 +132,10 @@ export default function TenantOnboarding() {
   };
 
   const handleEmailChange = (value) => {
-    setKycForm({ ...kycForm, email: value });
-    const validation = validateEmail(value);
+    const trimmedValue = value.trim().toLowerCase();
+    setKycForm({ ...kycForm, email: trimmedValue });
+    // Use Gmail-only validation for KYC
+    const validation = validateEmail(trimmedValue, true);
     setValidationErrors({
       ...validationErrors,
       email: validation.error || null,
@@ -134,7 +143,20 @@ export default function TenantOnboarding() {
   };
 
   const handleIDNumberChange = (value) => {
-    const formatted = formatIDNumber(kycForm.idType, value);
+    let formatted = value;
+
+    // Format based on ID type
+    if (kycForm.idType === "AADHAAR") {
+      // Aadhaar: format as 1234 5678 9012 (space after every 4 digits)
+      formatted = formatAadhar(value);
+    } else if (kycForm.idType === "PAN") {
+      // PAN: uppercase, no spaces
+      formatted = value.replace(/\s/g, "").toUpperCase().slice(0, 10);
+    } else if (kycForm.idType === "DL") {
+      // DL: uppercase, remove spaces and hyphens
+      formatted = value.replace(/[\s-]/g, "").toUpperCase().slice(0, 16);
+    }
+
     setKycForm({ ...kycForm, idNumber: formatted });
     const validation = validateIDNumber(kycForm.idType, formatted);
     setValidationErrors({
@@ -156,8 +178,8 @@ export default function TenantOnboarding() {
       errors.phone = phoneValidation.error;
     }
 
-    // Validate email
-    const emailValidation = validateEmail(kycForm.email);
+    // Validate email (Gmail only for KYC)
+    const emailValidation = validateEmail(kycForm.email, true);
     if (!emailValidation.valid) {
       errors.email = emailValidation.error;
     }
@@ -176,14 +198,24 @@ export default function TenantOnboarding() {
     }
 
     try {
-      // Clean the ID number before sending (remove spaces)
-      const cleanedIdNumber = kycForm.idNumber.replace(/\s/g, "");
+      // Clean the ID number before sending (remove spaces, uppercase for PAN/DL)
+      let cleanedIdNumber = kycForm.idNumber;
+      if (kycForm.idType === "AADHAAR") {
+        cleanedIdNumber = kycForm.idNumber.replace(/\s/g, "");
+      } else if (kycForm.idType === "PAN") {
+        cleanedIdNumber = kycForm.idNumber.replace(/\s/g, "").toUpperCase();
+      } else if (kycForm.idType === "DL") {
+        cleanedIdNumber = kycForm.idNumber.replace(/[\s-]/g, "").toUpperCase();
+      }
+
       const cleanedPhone = kycForm.phone.replace(/\D/g, "");
+      const cleanedEmail = kycForm.email.trim().toLowerCase();
 
       const formData = {
         ...kycForm,
         idNumber: cleanedIdNumber,
         phone: cleanedPhone,
+        email: cleanedEmail,
       };
 
       const result = await api.submitTenantKyc(formData);
@@ -646,7 +678,7 @@ export default function TenantOnboarding() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email *
+                      Gmail *
                     </label>
                     <input
                       type="email"
@@ -655,7 +687,8 @@ export default function TenantOnboarding() {
                       onChange={(e) => handleEmailChange(e.target.value)}
                       onBlur={() => {
                         if (kycForm.email) {
-                          const validation = validateEmail(kycForm.email);
+                          // Use Gmail-only validation for KYC
+                          const validation = validateEmail(kycForm.email, true);
                           setValidationErrors({
                             ...validationErrors,
                             email: validation.error || null,
@@ -667,7 +700,7 @@ export default function TenantOnboarding() {
                           ? "border-red-300 bg-red-50"
                           : "border-gray-300"
                       }`}
-                      placeholder="yourname@example.com"
+                      placeholder="example@gmail.com"
                     />
                     {validationErrors.email && (
                       <p className="mt-1 text-xs text-red-600">
@@ -676,7 +709,7 @@ export default function TenantOnboarding() {
                     )}
                     {!validationErrors.email && kycForm.email && (
                       <p className="mt-1 text-xs text-gray-500">
-                        {getEmailGuidelines()}
+                        Enter a valid Gmail address (example@gmail.com)
                       </p>
                     )}
                   </div>
@@ -760,8 +793,6 @@ export default function TenantOnboarding() {
                       <option value="AADHAAR">Aadhaar</option>
                       <option value="PAN">PAN</option>
                       <option value="DL">Driving License</option>
-                      <option value="PASSPORT">Passport</option>
-                      <option value="VOTER_ID">Voter ID</option>
                     </select>
                   </div>
                   <div>
@@ -795,7 +826,14 @@ export default function TenantOnboarding() {
                           ? "1234 5678 9012"
                           : kycForm.idType === "PAN"
                           ? "ABCDE1234F"
-                          : "Enter ID number"
+                          : "Enter DL number"
+                      }
+                      maxLength={
+                        kycForm.idType === "AADHAAR"
+                          ? 14
+                          : kycForm.idType === "PAN"
+                          ? 10
+                          : 16
                       }
                     />
                     {validationErrors.idNumber && (
