@@ -10,6 +10,38 @@ import Modal from "../components/ui/Modal";
 import { ScrollAnimation } from "../components/ScrollAnimation";
 import Loader from "../components/ui/Loader";
 
+// Cache utility functions (outside component to avoid recreation)
+const getCachedProfileData = (userId) => {
+  try {
+    const cached = sessionStorage.getItem(`profile_${userId}`);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      // Cache is valid for 5 minutes
+      const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        return data;
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to read cached profile data:", error);
+  }
+  return null;
+};
+
+const setCachedProfileData = (userId, data) => {
+  try {
+    sessionStorage.setItem(
+      `profile_${userId}`,
+      JSON.stringify({
+        data,
+        timestamp: Date.now(),
+      })
+    );
+  } catch (error) {
+    console.warn("Failed to cache profile data:", error);
+  }
+};
+
 function Profile() {
   const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -26,6 +58,8 @@ function Profile() {
   const [showImagesPdfViewer, setShowImagesPdfViewer] = useState(false);
   const [imagesPdfUrl, setImagesPdfUrl] = useState(null);
   const [viewingDocument, setViewingDocument] = useState(null); // Track which document is being viewed
+  const [profileDataFetched, setProfileDataFetched] = useState(false); // Track if profile data has been fetched
+  const [lastFetchTime, setLastFetchTime] = useState(null); // Track when data was last fetched
   const [profileData, setProfileData] = useState({
     name: user?.name || "",
     phone: "",
@@ -57,66 +91,150 @@ function Profile() {
     }
   }, [searchParams]);
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
+  const fetchData = useCallback(
+    async (forceRefresh = false) => {
+      if (!user?.id) return;
 
-      // Fetch complaints based on user role
-      let complaints = [];
-      if (user?.role === "OFFICER") {
-        // For officers, get all complaints and filter by assigned to them
-        const allComplaints = await api.getOfficerComplaints();
-        complaints = allComplaints.filter(
-          (c) => c.assignedOfficer && c.assignedOfficer.id === user.id
-        );
-      } else {
-        // For citizens, get their own complaints
-        complaints = await api.getMyComplaints();
+      try {
+        // Check cache first (unless force refresh)
+        if (!forceRefresh && profileDataFetched) {
+          const cached = getCachedProfileData(user.id);
+          if (cached) {
+            // Use cached data, only fetch complaints (they change more frequently)
+            setLoading(true);
+            let complaints = [];
+            if (user?.role === "OFFICER") {
+              const allComplaints = await api.getOfficerComplaints();
+              complaints = allComplaints.filter(
+                (c) => c.assignedOfficer && c.assignedOfficer.id === user.id
+              );
+            } else {
+              complaints = await api.getMyComplaints();
+            }
+
+            const stats = {
+              total: complaints.length,
+              new: complaints.filter((c) => c.status === "NEW").length,
+              inProgress: complaints.filter((c) => c.status === "IN_PROGRESS")
+                .length,
+              resolved: complaints.filter((c) => c.status === "RESOLVED")
+                .length,
+            };
+            setStats(stats);
+            setLoading(false);
+            return; // Use cached profile data
+          }
+        }
+
+        setLoading(true);
+
+        // Fetch complaints based on user role
+        let complaints = [];
+        if (user?.role === "OFFICER") {
+          // For officers, get all complaints and filter by assigned to them
+          const allComplaints = await api.getOfficerComplaints();
+          complaints = allComplaints.filter(
+            (c) => c.assignedOfficer && c.assignedOfficer.id === user.id
+          );
+        } else {
+          // For citizens, get their own complaints
+          complaints = await api.getMyComplaints();
+        }
+
+        // Fetch profile data
+        const profile = await api.getProfile().catch(() => null); // Profile might not exist yet
+
+        const stats = {
+          total: complaints.length,
+          new: complaints.filter((c) => c.status === "NEW").length,
+          inProgress: complaints.filter((c) => c.status === "IN_PROGRESS")
+            .length,
+          resolved: complaints.filter((c) => c.status === "RESOLVED").length,
+        };
+        setStats(stats);
+
+        if (profile) {
+          const updatedProfileData = {
+            name: profile.name || user?.name || "",
+            phone: profile.phone || "",
+            avatarUrl: profile.avatarUrl || "",
+            address: profile.address || {
+              street: "",
+              city: "",
+              state: "",
+              zipCode: "",
+              country: "",
+            },
+            maritalStatus: profile.maritalStatus || "",
+            personalDetails: profile.personalDetails || {
+              occupation: "",
+              dateOfBirth: "",
+              gender: "",
+            },
+          };
+          setProfileData(updatedProfileData);
+
+          // Cache the profile data
+          setCachedProfileData(user.id, updatedProfileData);
+
+          if (profile.avatarUrl) {
+            setAvatarPreview(profile.avatarUrl);
+          }
+        }
+
+        setProfileDataFetched(true);
+        setLastFetchTime(Date.now());
+      } catch (err) {
+        showToast.error("Failed to load profile data");
+      } finally {
+        setLoading(false);
       }
+    },
+    [user?.id, user?.role, profileDataFetched]
+  );
 
-      const profile = await api.getProfile().catch(() => null); // Profile might not exist yet
-
-      const stats = {
-        total: complaints.length,
-        new: complaints.filter((c) => c.status === "NEW").length,
-        inProgress: complaints.filter((c) => c.status === "IN_PROGRESS").length,
-        resolved: complaints.filter((c) => c.status === "RESOLVED").length,
-      };
-      setStats(stats);
-
-      if (profile) {
+  // Fetch data only on initial mount or when user changes
+  useEffect(() => {
+    if (user?.id) {
+      // Check if we have cached data first
+      const cached = getCachedProfileData(user.id);
+      if (cached) {
+        // Use cached data immediately
         setProfileData({
-          name: profile.name || user?.name || "",
-          phone: profile.phone || "",
-          avatarUrl: profile.avatarUrl || "",
-          address: profile.address || {
+          name: cached.name || user?.name || "",
+          phone: cached.phone || "",
+          avatarUrl: cached.avatarUrl || "",
+          address: cached.address || {
             street: "",
             city: "",
             state: "",
             zipCode: "",
             country: "",
           },
-          maritalStatus: profile.maritalStatus || "",
-          personalDetails: profile.personalDetails || {
+          maritalStatus: cached.maritalStatus || "",
+          personalDetails: cached.personalDetails || {
             occupation: "",
             dateOfBirth: "",
             gender: "",
           },
         });
-        if (profile.avatarUrl) {
-          setAvatarPreview(profile.avatarUrl);
+        if (cached.avatarUrl) {
+          setAvatarPreview(cached.avatarUrl);
         }
-      }
-    } catch (err) {
-      showToast.error("Failed to load profile data");
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+        setProfileDataFetched(true);
+        setLoading(false);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+        // Fetch fresh data in background (but don't block UI)
+        fetchData(false).catch(() => {
+          // Silently fail - we already have cached data
+        });
+      } else {
+        // No cache, fetch fresh data
+        fetchData(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // Only refetch when user ID changes
 
   // Refresh user data separately to avoid infinite loops
   // Only refresh if user data might be stale (e.g., after onboarding)
@@ -127,17 +245,6 @@ function Profile() {
       refreshUser();
     }
   }, []); // Only run once on mount
-
-  // Refresh stats when component is focused (user navigates back)
-  useEffect(() => {
-    const handleFocus = () => {
-      if (!isEditing) {
-        fetchData();
-      }
-    };
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, [isEditing, fetchData]); // fetchData is memoized with useCallback, so this is safe
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
@@ -172,6 +279,13 @@ function Profile() {
       }
 
       await api.updateProfile(updatedProfileData);
+
+      // Clear cache and refetch to get updated data
+      if (user?.id) {
+        sessionStorage.removeItem(`profile_${user.id}`);
+      }
+      await fetchData(true); // Force refresh after update
+
       showToast.success("Profile updated successfully!");
       setIsEditing(false);
       setAvatarFile(null);
@@ -213,7 +327,37 @@ function Profile() {
                 </Button>
               </>
             ) : (
-              <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    // Clear cache and force refresh
+                    if (user?.id) {
+                      sessionStorage.removeItem(`profile_${user.id}`);
+                    }
+                    setProfileDataFetched(false);
+                    fetchData(true);
+                  }}
+                  disabled={loading}
+                >
+                  <svg
+                    className="w-4 h-4 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  Refresh
+                </Button>
+                <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
+              </>
             )}
           </div>
         </div>
