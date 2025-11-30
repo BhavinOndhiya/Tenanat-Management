@@ -25,6 +25,7 @@ function Profile() {
     useState(false);
   const [showImagesPdfViewer, setShowImagesPdfViewer] = useState(false);
   const [imagesPdfUrl, setImagesPdfUrl] = useState(null);
+  const [viewingDocument, setViewingDocument] = useState(null); // Track which document is being viewed
   const [profileData, setProfileData] = useState({
     name: user?.name || "",
     phone: "",
@@ -621,11 +622,15 @@ function Profile() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => {
+                      loading={viewingDocument === "ekyc"}
+                      onClick={async () => {
                         try {
-                          api.viewDocument("ekyc");
+                          setViewingDocument("ekyc");
+                          await api.viewDocument("ekyc");
                         } catch (error) {
                           showToast.error("Failed to view eKYC document");
+                        } finally {
+                          setViewingDocument(null);
                         }
                       }}
                     >
@@ -705,11 +710,15 @@ function Profile() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => {
+                      loading={viewingDocument === "agreement"}
+                      onClick={async () => {
                         try {
-                          api.viewDocument("agreement");
+                          setViewingDocument("agreement");
+                          await api.viewDocument("agreement");
                         } catch (error) {
                           showToast.error("Failed to view Agreement document");
+                        } finally {
+                          setViewingDocument(null);
                         }
                       }}
                     >
