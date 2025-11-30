@@ -553,8 +553,14 @@ const buildPaymentReceiptEmail = ({
     process.env.FRONTEND_URL?.replace(":5173", ":3000") ||
     "http://localhost:3000";
 
+  // Remove trailing slash
   if (backendUrl.endsWith("/")) {
     backendUrl = backendUrl.slice(0, -1);
+  }
+
+  // Remove /api suffix if present (we'll add it back correctly)
+  if (backendUrl.endsWith("/api")) {
+    backendUrl = backendUrl.slice(0, -4);
   }
 
   const normalizedInvoicePath = (() => {
@@ -562,11 +568,13 @@ const buildPaymentReceiptEmail = ({
     if (invoiceUrl.startsWith("http")) return invoiceUrl;
 
     // invoiceService returns paths like /api/invoices/...
-    // If BACKEND_URL already includes /api, avoid duplicating it
+    // Ensure we have the full path with /api prefix
     let path = invoiceUrl;
-    if (backendUrl.endsWith("/api") && path.startsWith("/api")) {
-      path = path.slice(4) || "/";
+    if (!path.startsWith("/api")) {
+      path = `/api${path}`;
     }
+
+    // Construct full URL: backendUrl + /api/invoices/... + ?download=true
     return `${backendUrl}${path}${path.includes("?") ? "&" : "?"}download=true`;
   })();
 
@@ -897,17 +905,28 @@ const buildOwnerPaymentNotificationEmail = ({
   invoiceUrl,
 }) => {
   // Use backend URL for invoice downloads since invoices are served from backend
-  const backendUrl =
+  let backendUrl =
     process.env.BACKEND_URL ||
     process.env.API_URL ||
     process.env.FRONTEND_URL?.replace(":5173", ":3000") ||
     "http://localhost:3000";
+
+  // Remove trailing slash
+  if (backendUrl.endsWith("/")) {
+    backendUrl = backendUrl.slice(0, -1);
+  }
+
+  // Remove /api suffix if present (we'll add it back correctly)
+  if (backendUrl.endsWith("/api")) {
+    backendUrl = backendUrl.slice(0, -4);
+  }
+
   const fullInvoiceUrl = invoiceUrl
     ? invoiceUrl.startsWith("http")
       ? invoiceUrl
-      : `${backendUrl}${invoiceUrl}${
-          invoiceUrl.includes("?") ? "&" : "?"
-        }download=true`
+      : `${backendUrl}${
+          invoiceUrl.startsWith("/api") ? invoiceUrl : `/api${invoiceUrl}`
+        }${invoiceUrl.includes("?") ? "&" : "?"}download=true`
     : null;
 
   const content = `

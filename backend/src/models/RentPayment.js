@@ -113,6 +113,10 @@ const rentPaymentSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    invoicePdfBase64: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

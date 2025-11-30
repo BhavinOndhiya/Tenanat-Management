@@ -81,21 +81,98 @@ app.use("/api", ensureDBConnection);
 app.use("/api", apiRoutes);
 
 // Serve invoice PDFs
-app.get("/api/invoices/:filename", (req, res) => {
+app.get("/api/invoices/:filename", async (req, res) => {
   const filename = req.params.filename;
 
-  // In Lambda, use /tmp (only writable directory), otherwise use project directory
-  const isLambda =
-    process.env.LAMBDA_TASK_ROOT || process.env.AWS_LAMBDA_FUNCTION_NAME;
-  const invoicesDir = isLambda
-    ? path.join("/tmp", "invoices")
-    : path.join(__dirname, "../invoices");
+  // Extract payment ID from filename (format: rent-invoice-{paymentId}.pdf)
+  const paymentIdMatch = filename.match(/rent-invoice-(.+)\.pdf$/);
+  let pdfBuffer = null;
 
-  const filePath = path.join(invoicesDir, filename);
+  // Try to get from database first (for serverless environments)
+  if (paymentIdMatch) {
+    try {
+      const RentPayment = (await import("./models/RentPayment.js")).default;
+      const payment = await RentPayment.findById(paymentIdMatch[1])
+        .select("invoicePdfBase64")
+        .lean();
 
-  if (!fs.existsSync(filePath)) {
+      if (payment?.invoicePdfBase64) {
+        console.log(
+          `[Invoice] Serving invoice from database for payment ${paymentIdMatch[1]}`
+        );
+        pdfBuffer = Buffer.from(payment.invoicePdfBase64, "base64");
+      }
+    } catch (error) {
+      console.warn(
+        `[Invoice] Failed to load from database, trying file system:`,
+        error.message
+      );
+    }
+  }
+
+  // Fallback to file system if not in database
+  if (!pdfBuffer) {
+    // In Lambda, use /tmp (only writable directory), otherwise use project directory
+    const isLambda =
+      process.env.LAMBDA_TASK_ROOT || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    const invoicesDir = isLambda
+      ? path.join("/tmp", "invoices")
+      : path.join(__dirname, "../invoices");
+
+    const filePath = path.join(invoicesDir, filename);
+
+    if (fs.existsSync(filePath)) {
+      try {
+        pdfBuffer = fs.readFileSync(filePath);
+        console.log(`[Invoice] Serving invoice from file system: ${filePath}`);
+      } catch (error) {
+        console.error(`[Invoice] Failed to read file: ${filePath}`, error);
+      }
+    }
+  }
+
+  // If still no PDF, try to regenerate from database
+  if (!pdfBuffer && paymentIdMatch) {
+    try {
+      const RentPayment = (await import("./models/RentPayment.js")).default;
+      const payment = await RentPayment.findById(paymentIdMatch[1])
+        .populate("propertyId")
+        .populate("tenantId")
+        .populate("ownerId")
+        .lean();
+
+      if (payment && payment.status === "PAID") {
+        console.log(
+          `[Invoice] Regenerating invoice for payment ${paymentIdMatch[1]}`
+        );
+        const { generateRentInvoice } = await import(
+          "./services/invoiceService.js"
+        );
+        const invoiceResult = await generateRentInvoice({
+          rentPayment: payment,
+          property: payment.propertyId,
+          tenant: payment.tenantId,
+          owner: payment.ownerId,
+        });
+
+        // Update payment with base64
+        await RentPayment.findByIdAndUpdate(paymentIdMatch[1], {
+          invoicePdfUrl: invoiceResult.url,
+          invoicePdfBase64: invoiceResult.base64,
+        });
+
+        if (invoiceResult.base64) {
+          pdfBuffer = Buffer.from(invoiceResult.base64, "base64");
+        }
+      }
+    } catch (error) {
+      console.error(`[Invoice] Failed to regenerate invoice:`, error.message);
+    }
+  }
+
+  if (!pdfBuffer) {
     console.error(
-      `[Invoice] File not found: ${filePath} (Lambda: ${!!isLambda})`
+      `[Invoice] Invoice not found: ${filename} (tried database and file system)`
     );
     return res.status(404).json({ error: "Invoice not found" });
   }
@@ -107,7 +184,7 @@ app.get("/api/invoices/:filename", (req, res) => {
     "Content-Disposition",
     `${disposition}; filename="${filename}"`
   );
-  res.sendFile(filePath);
+  res.send(pdfBuffer);
 });
 
 // Health check

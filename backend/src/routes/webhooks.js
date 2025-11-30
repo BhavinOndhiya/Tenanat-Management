@@ -218,14 +218,17 @@ router.post(
                 console.log(
                   `[Webhook] Generating invoice for payment ${paymentRecord._id}, tenant ${tenant.email}, amount ${finalTotalAmount}`
                 );
-                const invoiceUrl = await generateRentInvoice({
+                const invoiceResult = await generateRentInvoice({
                   rentPayment: paymentRecord,
                   property,
                   tenant,
                   owner,
                 });
-                console.log(`[Webhook] Invoice generated: ${invoiceUrl}`);
-                paymentRecord.invoicePdfUrl = invoiceUrl;
+                console.log(
+                  `[Webhook] Invoice generated: ${invoiceResult.url}`
+                );
+                paymentRecord.invoicePdfUrl = invoiceResult.url;
+                paymentRecord.invoicePdfBase64 = invoiceResult.base64; // Store base64 for serverless
                 await paymentRecord.save();
                 console.log(
                   `[Webhook] Payment record updated with invoice URL`
@@ -292,7 +295,7 @@ router.post(
                     otherCharges: paymentRecord.otherCharges || [],
                     lateFeeAmount: paymentRecord.lateFeeAmount || 0,
                     paidAt: paymentRecord.paidAt || new Date(),
-                    invoiceUrl,
+                    invoiceUrl: invoiceResult.url,
                     passwordUpdateUrl,
                     tenantEmail: tenant.email,
                   });
@@ -313,7 +316,7 @@ router.post(
                     otherCharges: paymentRecord.otherCharges || [],
                     lateFeeAmount: paymentRecord.lateFeeAmount || 0,
                     paidAt: paymentRecord.paidAt || new Date(),
-                    invoiceUrl,
+                    invoiceUrl: invoiceResult.url,
                     ownerEmail: owner.email,
                   });
 

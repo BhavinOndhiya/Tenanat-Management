@@ -627,14 +627,15 @@ router.post("/payments/:paymentId/verify", async (req, res, next) => {
                 console.log(
                   `[Verify] Generating invoice for payment ${payment._id}...`
                 );
-                const invoiceUrl = await generateRentInvoice({
+                const invoiceResult = await generateRentInvoice({
                   rentPayment: payment,
                   property,
                   tenant,
                   owner,
                 });
-                console.log(`[Verify] Invoice generated: ${invoiceUrl}`);
-                payment.invoicePdfUrl = invoiceUrl;
+                console.log(`[Verify] Invoice generated: ${invoiceResult.url}`);
+                payment.invoicePdfUrl = invoiceResult.url;
+                payment.invoicePdfBase64 = invoiceResult.base64; // Store base64 for serverless
                 await payment.save();
                 console.log(
                   `[Verify] ✅ Payment ${payment._id} updated with invoice URL`
@@ -685,7 +686,7 @@ router.post("/payments/:paymentId/verify", async (req, res, next) => {
                     otherCharges: payment.otherCharges || [],
                     lateFeeAmount: payment.lateFeeAmount || 0,
                     paidAt: payment.paidAt || new Date(),
-                    invoiceUrl,
+                    invoiceUrl: invoiceResult.url,
                     tenantEmail: tenant.email,
                   });
 
@@ -705,7 +706,7 @@ router.post("/payments/:paymentId/verify", async (req, res, next) => {
                     otherCharges: payment.otherCharges || [],
                     lateFeeAmount: payment.lateFeeAmount || 0,
                     paidAt: payment.paidAt || new Date(),
-                    invoiceUrl,
+                    invoiceUrl: invoiceResult.url,
                     ownerEmail: owner.email,
                   });
 
@@ -1144,24 +1145,25 @@ router.post("/payments/:paymentId/generate-invoice", async (req, res, next) => {
     );
 
     // Generate invoice
-    const invoiceUrl = await generateRentInvoice({
+    const invoiceResult = await generateRentInvoice({
       rentPayment: payment,
       property,
       tenant,
       owner,
     });
 
-    // Update payment with invoice URL
-    payment.invoicePdfUrl = invoiceUrl;
+    // Update payment with invoice URL and base64
+    payment.invoicePdfUrl = invoiceResult.url;
+    payment.invoicePdfBase64 = invoiceResult.base64; // Store base64 for serverless
     await payment.save();
 
     console.log(
-      `[Generate Invoice] ✅ Invoice generated: ${invoiceUrl} for payment ${payment._id}`
+      `[Generate Invoice] ✅ Invoice generated: ${invoiceResult.url} for payment ${payment._id}`
     );
 
     res.json({
       success: true,
-      invoiceUrl,
+      invoiceUrl: invoiceResult.url,
       message: "Invoice generated successfully",
     });
   } catch (error) {

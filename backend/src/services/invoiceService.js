@@ -950,7 +950,27 @@ export async function generateRentInvoice({
     stream.on("error", reject);
   });
 
-  // Return URL
+  // Read the generated PDF file and convert to base64 for database storage
+  // This is necessary for serverless environments where /tmp is ephemeral
+  let invoiceBase64 = null;
+  try {
+    const pdfBuffer = fs.readFileSync(filePath);
+    invoiceBase64 = pdfBuffer.toString("base64");
+    console.log(
+      `[Invoice] PDF converted to base64: ${invoiceBase64.length} characters`
+    );
+  } catch (error) {
+    console.error(
+      "[Invoice] Failed to read PDF file for base64 conversion:",
+      error
+    );
+    // Continue even if base64 conversion fails - we still have the file path
+  }
+
+  // Return both URL and base64 for storage
   const publicUrl = `/api/invoices/${fileName}`;
-  return publicUrl;
+  return {
+    url: publicUrl,
+    base64: invoiceBase64,
+  };
 }
