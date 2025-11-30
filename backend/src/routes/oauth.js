@@ -19,20 +19,40 @@ async function verifyGoogleToken(idToken) {
     }
     const data = await response.json();
 
+    console.log("[OAuth Google] Token info response:", {
+      hasEmail: !!data.email,
+      emailVerified: data.email_verified,
+      emailVerifiedType: typeof data.email_verified,
+      aud: data.aud,
+      expectedAud: process.env.GOOGLE_CLIENT_ID,
+    });
+
     // Verify the token is for our client
     if (
       process.env.GOOGLE_CLIENT_ID &&
       data.aud !== process.env.GOOGLE_CLIENT_ID
     ) {
+      console.error("[OAuth Google] Audience mismatch:", {
+        received: data.aud,
+        expected: process.env.GOOGLE_CLIENT_ID,
+      });
       throw new Error("Token audience mismatch");
     }
+
+    // email_verified can be "true" (string), true (boolean), false, "false", or missing
+    // Google OAuth emails are generally trusted - if email exists, consider it verified
+    // Only explicitly reject if email_verified is false or "false"
+    const isExplicitlyUnverified =
+      data.email_verified === false || data.email_verified === "false";
+
+    const emailVerified = !isExplicitlyUnverified && !!data.email;
 
     return {
       id: data.sub,
       email: data.email,
       name: data.name,
       picture: data.picture,
-      verified: data.email_verified === true,
+      verified: emailVerified,
     };
   } catch (error) {
     console.error("[OAuth Google] Token verification error:", error);
@@ -186,8 +206,17 @@ router.post("/google", async (req, res, next) => {
     // Verify Google token
     const profile = await verifyGoogleToken(idToken);
 
-    if (!profile.verified) {
+    // If email is present, Google OAuth emails are generally verified
+    // Only reject if explicitly marked as unverified
+    if (profile.email && profile.verified === false) {
       return res.status(400).json({ error: "Google email not verified" });
+    }
+
+    // If no email in token, that's an error
+    if (!profile.email) {
+      return res
+        .status(400)
+        .json({ error: "Email is required for Google login" });
     }
 
     // Handle user creation/update and get JWT

@@ -23,13 +23,17 @@
         "BACKEND_URL": "https://awy56hfhbi.execute-api.us-east-1.amazonaws.com/api",
         "SMTP_HOST": "smtp.hostinger.com",
         "SMTP_PORT": "465",
-        "SMTP_USER": "team@streamivus.com",
+        "SMTP_USER": "no-reply@streamivus.com",
         "SMTP_PASS": "Streamivus@4520",
         "SMTP_FROM": "",
         "EMAIL_FROM_NAME": "Streamivus",
-        "EMAIL_FROM_EMAIL": "team@streamivus.com",
+        "EMAIL_FROM_EMAIL": "no-reply@streamivus.com",
         "PORT": "3000",
-        "SMTP_SECURE": "true"
+        "SMTP_SECURE": "true",
+        "GOOGLE_CLIENT_ID": "1089518665100-m4iovkq2s3anphgnphf51sq1t62oq7t4.apps.googleusercontent.com",
+        "GOOGLE_CLIENT_SECRET": "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",
+        "FACEBOOK_APP_ID": "your-facebook-app-id",
+        "FACEBOOK_APP_SECRET": "your-facebook-app-secret"
       },
       "httpApi": {
         "cors": {
@@ -241,7 +245,7 @@
                 "S3Bucket": {
                   "Ref": "ServerlessDeploymentBucket"
                 },
-                "S3Key": "serverless/complaint-management-api/prod/1764441365360-2025-11-29T18:36:05.360Z/complaint-management-api.zip"
+                "S3Key": "serverless/complaint-management-api/prod/1764481998431-2025-11-30T05:53:18.431Z/complaint-management-api.zip"
               },
               "Handler": "src/handler.handler",
               "Runtime": "nodejs18.x",
@@ -261,13 +265,17 @@
                   "BACKEND_URL": "https://awy56hfhbi.execute-api.us-east-1.amazonaws.com/api",
                   "SMTP_HOST": "smtp.hostinger.com",
                   "SMTP_PORT": "465",
-                  "SMTP_USER": "team@streamivus.com",
+                  "SMTP_USER": "no-reply@streamivus.com",
                   "SMTP_PASS": "Streamivus@4520",
                   "SMTP_FROM": "",
                   "EMAIL_FROM_NAME": "Streamivus",
-                  "EMAIL_FROM_EMAIL": "team@streamivus.com",
+                  "EMAIL_FROM_EMAIL": "no-reply@streamivus.com",
                   "PORT": "3000",
-                  "SMTP_SECURE": "true"
+                  "SMTP_SECURE": "true",
+                  "GOOGLE_CLIENT_ID": "1089518665100-m4iovkq2s3anphgnphf51sq1t62oq7t4.apps.googleusercontent.com",
+                  "GOOGLE_CLIENT_SECRET": "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",
+                  "FACEBOOK_APP_ID": "your-facebook-app-id",
+                  "FACEBOOK_APP_SECRET": "your-facebook-app-secret"
                 }
               },
               "Role": {
@@ -281,14 +289,14 @@
               "ApiLogGroup"
             ]
           },
-          "ApiLambdaVersionbfpI540kArgzM9xbzvf13MCtJwUGJNQLEIXKmUS8Y": {
+          "ApiLambdaVersionJumMOF6GBRqxg4XxMVWbbNgIOwhh0oht7OJUxlm7Gw": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "ApiLambdaFunction"
               },
-              "CodeSha256": "O2zpOzoNPvx8hSLrxPiURL/DSp1me3v+jBrMvk3r1qU="
+              "CodeSha256": "bLZozrRYhznt99fQ5JAKU7a271F2Xp9bhWgiOSAIn/Q="
             }
           },
           "HttpApi": {
@@ -441,7 +449,7 @@
           "ApiLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "ApiLambdaVersionbfpI540kArgzM9xbzvf13MCtJwUGJNQLEIXKmUS8Y"
+              "Ref": "ApiLambdaVersionJumMOF6GBRqxg4XxMVWbbNgIOwhh0oht7OJUxlm7Gw"
             },
             "Export": {
               "Name": "sls-complaint-management-api-prod-ApiLambdaFunctionQualifiedArn"
@@ -605,7 +613,7 @@
         "timeout": 30,
         "runtime": "nodejs18.x",
         "vpc": {},
-        "versionLogicalId": "ApiLambdaVersionbfpI540kArgzM9xbzvf13MCtJwUGJNQLEIXKmUS8Y"
+        "versionLogicalId": "ApiLambdaVersionJumMOF6GBRqxg4XxMVWbbNgIOwhh0oht7OJUxlm7Gw"
       }
     },
     "configValidationMode": "warn",
@@ -633,7 +641,7 @@
         ],
         "artifactsS3KeyDirname": "serverless/complaint-management-api/prod/code-artifacts",
         "artifact": "C:\\Users\\BhavinOndhiya\\Desktop\\first-project\\backend\\.serverless\\complaint-management-api.zip",
-        "artifactDirectoryName": "serverless/complaint-management-api/prod/1764441365360-2025-11-29T18:36:05.360Z"
+        "artifactDirectoryName": "serverless/complaint-management-api/prod/1764481998431-2025-11-30T05:53:18.431Z"
       },
       "plugins": {
         "$ref": "$[\"service\"][\"plugins\"]"
@@ -648,7 +656,7 @@
   },
   "package": {
     "individually": false,
-    "artifactDirectoryName": "serverless/complaint-management-api/prod/1764441365360-2025-11-29T18:36:05.360Z",
+    "artifactDirectoryName": "serverless/complaint-management-api/prod/1764481998431-2025-11-30T05:53:18.431Z",
     "artifact": "complaint-management-api.zip"
   }
 }
