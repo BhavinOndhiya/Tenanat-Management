@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "pg-mobile",
+    "slug": "pg-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "pgmobile",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to your camera to capture ID documents and selfie for KYC verification.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select ID documents for KYC verification.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.bhavinondhiya.pgmobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you select ID documents for KYC verification.",
+          "cameraPermission": "The app accesses your camera to let you capture ID documents and selfie for KYC verification."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c24b47d6-1d0c-4496-84fb-146fe3be4ea5"
+      }
+    }
+  }
+}

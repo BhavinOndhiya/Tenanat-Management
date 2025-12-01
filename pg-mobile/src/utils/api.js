@@ -1,5 +1,8 @@
-export const API_BASE_URL =
-  import.meta.env.VITE_BACKEND_BASE_URL?.replace(/\/$/, "") || "/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { config } from "./config";
+
+// API Base URL - should be set via environment variable or config
+export const API_BASE_URL = config.API_BASE_URL;
 
 const buildQuery = (params = {}) => {
   const query = new URLSearchParams();
@@ -13,7 +16,7 @@ const buildQuery = (params = {}) => {
 
 export const api = {
   async request(endpoint, options = {}) {
-    const token = localStorage.getItem("token");
+    const token = await AsyncStorage.getItem("token");
 
     const config = {
       ...options,
@@ -24,14 +27,23 @@ export const api = {
       },
     };
 
-    if (options.body && typeof options.body === "object") {
+    if (
+      options.body &&
+      typeof options.body === "object" &&
+      !(options.body instanceof FormData)
+    ) {
       config.body = JSON.stringify(options.body);
+    } else if (options.body instanceof FormData) {
+      // For FormData, don't set Content-Type - let fetch set it with boundary
+      delete config.headers["Content-Type"];
+      config.body = options.body;
     }
 
     try {
       const url = `${API_BASE_URL}${endpoint}`;
       console.log(`[API] Making request to: ${url}`, {
         method: config.method || "GET",
+        headers: config.headers,
       });
 
       const response = await fetch(url, config);
@@ -50,20 +62,17 @@ export const api = {
           url,
           status: response.status,
           data,
+          headers: Object.fromEntries(response.headers.entries()),
         });
 
         const errorMessage =
           data.error || `Request failed with status ${response.status}`;
 
-        // Handle auth errors - always redirect on 401/403
+        // Handle auth errors - clear storage on 401/403
         if (response.status === 401 || response.status === 403) {
-          // Clear invalid session
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          // Redirect to login if not already there
-          if (!window.location.pathname.includes("/auth/login")) {
-            window.location.href = "/auth/login";
-          }
+          await AsyncStorage.removeItem("token");
+          await AsyncStorage.removeItem("user");
+          // Navigation will be handled by auth context
         }
 
         throw new Error(errorMessage);
@@ -72,7 +81,30 @@ export const api = {
       console.log(`[API] Request successful: ${url}`, data);
       return data;
     } catch (error) {
-      // Log detailed error (always, not just in dev)
+      // Check for CORS or network errors
+      const isNetworkError =
+        error.message?.includes("Failed to fetch") ||
+        error.message?.includes("Network request failed") ||
+        error.message?.includes("NetworkError") ||
+        error.name === "TypeError" ||
+        error.name === "NetworkError";
+
+      if (isNetworkError) {
+        console.error("[API] Network/CORS Error:", {
+          endpoint,
+          url: `${API_BASE_URL}${endpoint}`,
+          error: error.message,
+          name: error.name,
+          stack: error.stack,
+        });
+        // Provide a more helpful error message
+        const corsError = new Error(
+          `Network error: Unable to connect to ${API_BASE_URL}. Please check your API configuration and ensure CORS is properly configured on the server.`
+        );
+        corsError.name = "NetworkError";
+        throw corsError;
+      }
+
       console.error("[API] Error:", {
         endpoint,
         url: `${API_BASE_URL}${endpoint}`,
@@ -134,30 +166,27 @@ export const api = {
     return this.request("/tenant/onboarding");
   },
 
-  async sendAadhaarOtp(aadhaarNumber, reason) {
-    return this.request("/tenant/ekyc/otp", {
-      method: "POST",
-      body: {
-        aadhaarNumber,
-        reason: reason || "KYC Verification for PG Tenant Onboarding",
-      },
-    });
-  },
-
   async submitTenantKyc(formData) {
     // FormData for file uploads
-    const token = localStorage.getItem("token");
+    const token = await AsyncStorage.getItem("token");
     const formDataToSend = new FormData();
 
     Object.keys(formData).forEach((key) => {
       if (formData[key] !== null && formData[key] !== undefined) {
         if (key === "idFront" || key === "idBack" || key === "selfie") {
-          // File uploads
-          if (formData[key] instanceof File) {
-            formDataToSend.append(key, formData[key]);
+          // File uploads - formData[key] should be a file URI or object with uri, type, name
+          if (formData[key]) {
+            const file = formData[key];
+            if (file.uri) {
+              formDataToSend.append(key, {
+                uri: file.uri,
+                type: file.type || "image/jpeg",
+                name: file.name || `${key}.jpg`,
+              });
+            }
           }
         } else {
-          // Regular fields (including referenceId and otp for Aadhaar)
+          // Regular fields
           formDataToSend.append(key, formData[key]);
         }
       }
@@ -180,10 +209,11 @@ export const api = {
   },
 
   async getAgreementPreview() {
+    const token = await AsyncStorage.getItem("token");
     const response = await fetch(`${API_BASE_URL}/tenant/agreement/preview`, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -342,63 +372,6 @@ export const api = {
     return this.request(`/events/${eventId}/participants`);
   },
 
-  // Admin users
-  async getAdminUsers(params) {
-    return this.request(`/admin/users${buildQuery(params)}`);
-  },
-
-  async createAdminUser(payload) {
-    return this.request("/admin/users", {
-      method: "POST",
-      body: payload,
-    });
-  },
-
-  async updateUserRole(userId, role) {
-    return this.request(`/admin/users/${userId}/role`, {
-      method: "PATCH",
-      body: { role },
-    });
-  },
-
-  async updateUserStatus(userId, isActive) {
-    return this.request(`/admin/users/${userId}/status`, {
-      method: "PATCH",
-      body: { isActive },
-    });
-  },
-
-  async getAdminUser(userId) {
-    return this.request(`/admin/users/${userId}`);
-  },
-
-  async updateAdminUserPassword(userId, password) {
-    return this.request(`/admin/users/${userId}/password`, {
-      method: "PATCH",
-      body: { password },
-    });
-  },
-
-  async updateAdminUser(userId, userData) {
-    return this.request(`/admin/users/${userId}`, {
-      method: "PUT",
-      body: userData,
-    });
-  },
-
-  async patchAdminUser(userId, userData) {
-    return this.request(`/admin/users/${userId}`, {
-      method: "PATCH",
-      body: userData,
-    });
-  },
-
-  async deleteAdminUser(userId) {
-    return this.request(`/admin/users/${userId}`, {
-      method: "DELETE",
-    });
-  },
-
   // Documents
   async getMyDocuments() {
     return this.request("/documents/my-documents");
@@ -406,10 +379,11 @@ export const api = {
 
   async downloadDocument(type) {
     // type: 'ekyc' or 'agreement'
+    const token = await AsyncStorage.getItem("token");
     const response = await fetch(`${API_BASE_URL}/documents/download/${type}`, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -418,37 +392,45 @@ export const api = {
       throw new Error(error.error || "Failed to download document");
     }
 
+    // For mobile, return blob URL or file path
     const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = type === "ekyc" ? "eKYC-Document.pdf" : "PG-Agreement.pdf";
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    return blob;
   },
 
   async viewDocument(type) {
     // type: 'ekyc', 'agreement', or 'reference'
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      throw new Error("Authentication required. Please log in again.");
+    }
+
     const response = await fetch(`${API_BASE_URL}/documents/download/${type}`, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response
+        .json()
+        .catch(() => ({ error: "Failed to view document" }));
       throw new Error(error.error || "Failed to view document");
     }
 
+    // For web platform, create blob URL and open in new tab
+    if (typeof window !== "undefined" && window.URL) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      // Clean up after a delay
+      setTimeout(() => window.URL.revokeObjectURL(url), 100);
+      return;
+    }
+
+    // For native platforms, return blob for further processing
     const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    // Open in new tab
-    window.open(url, "_blank");
-    // Clean up after a delay (browser will handle the URL)
-    setTimeout(() => window.URL.revokeObjectURL(url), 100);
+    return blob;
   },
 
   async getTenantDocuments(tenantId) {
@@ -459,12 +441,13 @@ export const api = {
 
   async downloadTenantDocument(tenantId, type) {
     // type: 'ekyc' or 'agreement'
+    const token = await AsyncStorage.getItem("token");
     const response = await fetch(
       `${API_BASE_URL}/documents/tenant/${tenantId}/download/${type}`,
       {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
       }
     );
@@ -475,24 +458,18 @@ export const api = {
     }
 
     const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = type === "ekyc" ? "eKYC-Document.pdf" : "PG-Agreement.pdf";
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    return blob;
   },
 
   async viewTenantDocument(tenantId, type) {
     // type: 'ekyc' or 'agreement'
+    const token = await AsyncStorage.getItem("token");
     const response = await fetch(
       `${API_BASE_URL}/documents/tenant/${tenantId}/download/${type}`,
       {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
       }
     );
@@ -503,201 +480,52 @@ export const api = {
     }
 
     const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    // Open in new tab
-    window.open(url, "_blank");
-    // Clean up after a delay (browser will handle the URL)
-    setTimeout(() => window.URL.revokeObjectURL(url), 100);
-  },
-
-  // Admin flats
-  async getAdminFlats(params) {
-    return this.request(`/admin/flats${buildQuery(params)}`);
-  },
-
-  async createFlat(payload) {
-    return this.request("/admin/flats", {
-      method: "POST",
-      body: payload,
-    });
-  },
-
-  async updateFlat(id, payload) {
-    return this.request(`/admin/flats/${id}`, {
-      method: "PATCH",
-      body: payload,
-    });
-  },
-
-  async deleteFlat(id) {
-    return this.request(`/admin/flats/${id}`, { method: "DELETE" });
-  },
-
-  // Flat assignments
-  async getFlatAssignments() {
-    return this.request("/admin/flat-assignments");
-  },
-
-  async createFlatAssignment(payload) {
-    return this.request("/admin/flat-assignments", {
-      method: "POST",
-      body: payload,
-    });
-  },
-
-  async deleteFlatAssignment(id) {
-    return this.request(`/admin/flat-assignments/${id}`, {
-      method: "DELETE",
-    });
-  },
-
-  // Admin events
-  async getAdminEvents() {
-    return this.request("/admin/events");
-  },
-
-  async createAdminEvent(payload) {
-    return this.request("/admin/events", {
-      method: "POST",
-      body: payload,
-    });
-  },
-
-  async updateAdminEvent(id, payload) {
-    return this.request(`/admin/events/${id}`, {
-      method: "PATCH",
-      body: payload,
-    });
-  },
-
-  async deleteAdminEvent(id) {
-    return this.request(`/admin/events/${id}`, {
-      method: "DELETE",
-    });
-  },
-
-  async getAdminDashboardSummary() {
-    return this.request("/admin/dashboard/summary");
-  },
-
-  async getOfficerSummary() {
-    return this.request("/officer/summary");
-  },
-
-  async getAdminComplaints(view = "all", params = {}) {
-    return this.request(`/admin/complaints/${view}${buildQuery(params)}`);
-  },
-
-  async getAdminAnnouncementsList(params = {}) {
-    return this.request(`/admin/announcements/all${buildQuery(params)}`);
-  },
-
-  async getAdminEventsList(params = {}) {
-    return this.request(`/admin/events/all${buildQuery(params)}`);
-  },
-
-  async getAdminFlatsDetailed() {
-    return this.request("/admin/flats/detailed");
-  },
-
-  async exportAdminCsv(type, params = {}) {
-    const token = localStorage.getItem("token");
-    const response = await fetch(
-      `/api/admin/export/${type}${buildQuery(params)}`,
-      {
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Failed to export CSV");
-    }
-
-    const blob = await response.blob();
     return blob;
   },
 
-  async getAdminBillingSummary(params = {}) {
-    return this.request(`/admin/billing/summary${buildQuery(params)}`);
+  // PG Tenant Rent Payments
+  async getNextRentDue() {
+    return this.request("/pg-tenant/payments/next-due");
   },
 
-  async getAdminBillingInvoices(params = {}) {
-    return this.request(`/admin/billing/invoices${buildQuery(params)}`);
-  },
-
-  async getAdminBillingInvoice(id) {
-    return this.request(`/admin/billing/invoices/${id}`);
-  },
-
-  async getMyBillingInvoices(params = {}) {
-    return this.request(`/billing/my-invoices${buildQuery(params)}`);
-  },
-
-  async getMyBillingInvoice(id) {
-    return this.request(`/billing/my-invoices/${id}`);
-  },
-
-  async createInvoicePaymentOrder(id, payload = {}) {
-    return this.request(`/billing/my-invoices/${id}/create-order`, {
-      method: "POST",
-      body: payload,
-    });
-  },
-
-  async verifyInvoicePayment(payload) {
-    return this.request(`/billing/verify-payment`, {
-      method: "POST",
-      body: payload,
-    });
-  },
-
-  // Tenant Management (for flat owners)
-  async getTenantUsers() {
-    return this.request("/tenants/users");
-  },
-
-  async createTenantUser(payload) {
-    return this.request("/tenants/users", {
-      method: "POST",
-      body: payload,
-    });
-  },
-
-  async getMyOwnedFlats() {
-    return this.request("/tenants/my-flats");
-  },
-
-  async getTenantForFlat(flatId, filters = {}) {
-    return this.request(`/tenants/flat/${flatId}${buildQuery(filters)}`);
-  },
-
-  async createTenant(payload) {
-    return this.request("/tenants", {
-      method: "POST",
-      body: payload,
-    });
-  },
-
-  async updateTenant(tenantId, payload) {
-    return this.request(`/tenants/${tenantId}`, {
-      method: "PATCH",
-      body: payload,
-    });
-  },
-
-  async removeTenant(tenantId) {
-    return this.request(`/tenants/${tenantId}`, {
-      method: "DELETE",
-    });
-  },
-
-  async sendRentReminder(tenantId) {
-    return this.request(`/tenants/${tenantId}/send-reminder`, {
+  async createRentPaymentOrder(paymentId) {
+    return this.request(`/pg-tenant/payments/${paymentId}/create-order`, {
       method: "POST",
     });
+  },
+
+  async getRentPaymentHistory(params = {}) {
+    return this.request(`/pg-tenant/payments/history${buildQuery(params)}`);
+  },
+
+  async getRentPaymentStatistics() {
+    return this.request("/pg-tenant/payments/statistics");
+  },
+
+  async verifyRentPayment(paymentId) {
+    return this.request(`/pg-tenant/payments/${paymentId}/verify`, {
+      method: "POST",
+    });
+  },
+
+  async generateRentInvoice(paymentId) {
+    return this.request(`/pg-tenant/payments/${paymentId}/generate-invoice`, {
+      method: "POST",
+    });
+  },
+
+  // PG Owner Rent Payments
+  async getOwnerRentPayments(params = {}) {
+    return this.request(`/owner/pg/payments/history${buildQuery(params)}`);
+  },
+
+  async getOwnerRentPaymentsSummary(params = {}) {
+    return this.request(`/owner/pg/payments/summary${buildQuery(params)}`);
+  },
+
+  // PG Tenant Profile
+  async getPgTenantProfile() {
+    return this.request(`/pg-tenant/profile`);
   },
 
   // Owner dashboards & complaints
@@ -776,67 +604,11 @@ export const api = {
       body: payload,
     });
   },
+
   async deletePgTenant(id) {
     return this.request(`/owner/pg/tenants/${id}`, {
       method: "DELETE",
     });
-  },
-
-  // Admin role access
-  async getRoleAccess() {
-    return this.request("/admin/role-access");
-  },
-
-  async updateRoleAccess(role, navItems) {
-    return this.request(`/admin/role-access/${role}`, {
-      method: "PATCH",
-      body: { navItems },
-    });
-  },
-
-  // PG Tenant Rent Payments
-  async getNextRentDue() {
-    return this.request("/pg-tenant/payments/next-due");
-  },
-
-  async createRentPaymentOrder(paymentId) {
-    return this.request(`/pg-tenant/payments/${paymentId}/create-order`, {
-      method: "POST",
-    });
-  },
-
-  async getRentPaymentHistory(params = {}) {
-    return this.request(`/pg-tenant/payments/history${buildQuery(params)}`);
-  },
-
-  async getRentPaymentStatistics() {
-    return this.request("/pg-tenant/payments/statistics");
-  },
-
-  async verifyRentPayment(paymentId) {
-    return this.request(`/pg-tenant/payments/${paymentId}/verify`, {
-      method: "POST",
-    });
-  },
-
-  async generateRentInvoice(paymentId) {
-    return this.request(`/pg-tenant/payments/${paymentId}/generate-invoice`, {
-      method: "POST",
-    });
-  },
-
-  // PG Owner Rent Payments
-  async getOwnerRentPayments(params = {}) {
-    return this.request(`/owner/pg/payments/history${buildQuery(params)}`);
-  },
-
-  async getOwnerRentPaymentsSummary(params = {}) {
-    return this.request(`/owner/pg/payments/summary${buildQuery(params)}`);
-  },
-
-  // PG Tenant Profile
-  async getPgTenantProfile() {
-    return this.request(`/pg-tenant/profile`);
   },
 
   // Documents

@@ -53,7 +53,14 @@ export default function TenantOnboarding() {
     idFront: null,
     idBack: null,
     selfie: null,
+    // Aadhaar OTP fields
+    aadhaarOtp: "",
+    referenceId: null,
   });
+
+  // Aadhaar OTP state
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
 
   // Agreement state
   const [otp, setOtp] = useState("");
@@ -165,6 +172,42 @@ export default function TenantOnboarding() {
     });
   };
 
+  const handleSendAadhaarOtp = async () => {
+    if (kycForm.idType !== "AADHAAR") {
+      showToast.error("OTP can only be sent for Aadhaar verification");
+      return;
+    }
+
+    // Validate Aadhaar number
+    const idValidation = validateIDNumber("AADHAAR", kycForm.idNumber);
+    if (!idValidation.valid) {
+      showToast.error(
+        idValidation.error || "Please enter a valid Aadhaar number"
+      );
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const cleanedAadhaar = kycForm.idNumber.replace(/\s/g, "");
+      const result = await api.sendAadhaarOtp(cleanedAadhaar);
+
+      if (result.success) {
+        setKycForm((prev) => ({
+          ...prev,
+          referenceId: result.referenceId,
+        }));
+        setOtpSent(true);
+        showToast.success("OTP sent to your Aadhaar registered mobile number");
+      }
+    } catch (error) {
+      console.error("Send OTP error:", error);
+      showToast.error(error.message || "Failed to send OTP");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
   const handleKycSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -188,6 +231,16 @@ export default function TenantOnboarding() {
     const idValidation = validateIDNumber(kycForm.idType, kycForm.idNumber);
     if (!idValidation.valid) {
       errors.idNumber = idValidation.error;
+    }
+
+    // For Aadhaar, validate OTP and referenceId
+    if (kycForm.idType === "AADHAAR") {
+      if (!otpSent || !kycForm.referenceId) {
+        errors.aadhaarOtp = "Please send OTP first";
+      } else if (!kycForm.aadhaarOtp || kycForm.aadhaarOtp.length < 4) {
+        errors.aadhaarOtp =
+          "Please enter the OTP received on your Aadhaar registered mobile";
+      }
     }
 
     if (Object.keys(errors).length > 0) {
@@ -216,6 +269,11 @@ export default function TenantOnboarding() {
         idNumber: cleanedIdNumber,
         phone: cleanedPhone,
         email: cleanedEmail,
+        // Include referenceId and otp for Aadhaar verification
+        ...(kycForm.idType === "AADHAAR" && {
+          referenceId: kycForm.referenceId,
+          otp: kycForm.aadhaarOtp,
+        }),
       };
 
       const result = await api.submitTenantKyc(formData);
@@ -782,11 +840,15 @@ export default function TenantOnboarding() {
                           ...kycForm,
                           idType: e.target.value,
                           idNumber: "", // Clear ID number when type changes
+                          aadhaarOtp: "", // Clear OTP when type changes
+                          referenceId: null, // Clear referenceId when type changes
                         });
                         setValidationErrors({
                           ...validationErrors,
                           idNumber: null,
+                          aadhaarOtp: null,
                         });
+                        setOtpSent(false); // Reset OTP sent status
                       }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     >
@@ -852,6 +914,70 @@ export default function TenantOnboarding() {
                     )}
                   </div>
                 </div>
+
+                {/* Aadhaar OTP Section */}
+                {kycForm.idType === "AADHAAR" && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Aadhaar OTP Verification *
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={kycForm.aadhaarOtp}
+                        onChange={(e) =>
+                          setKycForm({
+                            ...kycForm,
+                            aadhaarOtp: e.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 6),
+                          })
+                        }
+                        placeholder="Enter 6-digit OTP"
+                        maxLength={6}
+                        disabled={!otpSent}
+                        className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
+                          validationErrors.aadhaarOtp
+                            ? "border-red-300 bg-red-50"
+                            : "border-gray-300"
+                        } ${!otpSent ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendAadhaarOtp}
+                        disabled={
+                          sendingOtp ||
+                          !kycForm.idNumber ||
+                          validationErrors.idNumber
+                        }
+                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      >
+                        {sendingOtp
+                          ? "Sending..."
+                          : otpSent
+                          ? "Resend OTP"
+                          : "Send OTP"}
+                      </button>
+                    </div>
+                    {validationErrors.aadhaarOtp && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {validationErrors.aadhaarOtp}
+                      </p>
+                    )}
+                    {otpSent && !validationErrors.aadhaarOtp && (
+                      <p className="mt-1 text-xs text-green-600">
+                        OTP sent! Please check your Aadhaar registered mobile
+                        number.
+                      </p>
+                    )}
+                    {!otpSent && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        Click "Send OTP" to receive OTP on your Aadhaar
+                        registered mobile number.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
