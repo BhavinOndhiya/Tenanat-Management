@@ -70,3 +70,4 @@ Write-Host "To verify, restart terminal and run:" -ForegroundColor Cyan
 Write-Host "  adb version" -ForegroundColor White
 Write-Host ""
 
+

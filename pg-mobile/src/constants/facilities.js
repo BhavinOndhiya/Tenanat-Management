@@ -21,3 +21,4 @@ export const GENDER_OPTIONS = [
   { value: "GIRLS", label: "Girls" },
   { value: "COED", label: "Co-ed" },
 ];
+

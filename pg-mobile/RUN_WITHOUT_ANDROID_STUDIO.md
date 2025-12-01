@@ -95,3 +95,4 @@ That's it! The app will load on your phone and connect to the deployed backend.
 2. Restart Expo: `npm start -- --clear`
 3. Check internet connection on phone
 
+

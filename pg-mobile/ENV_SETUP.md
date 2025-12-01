@@ -54,3 +54,4 @@ const facebookAppId = config.FACEBOOK_APP_ID;
 - The config file provides a centralized way to access all environment variables
 - Default values are provided where appropriate (e.g., empty string for optional OAuth variables)
 
+

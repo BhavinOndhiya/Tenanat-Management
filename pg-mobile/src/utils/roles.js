@@ -17,3 +17,4 @@ export const getDefaultRouteForRole = (role) => {
 
 export const roleMatches = (role, allowed = []) =>
   role && allowed.includes(role);
+

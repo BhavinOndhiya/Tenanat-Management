@@ -334,3 +334,4 @@ export function getAadharGuidelines() {
 export function getPANGuidelines() {
   return "Enter your 10-character PAN number (e.g., ABCDE1234F). Format: 5 letters, 4 digits, 1 letter.";
 }
+

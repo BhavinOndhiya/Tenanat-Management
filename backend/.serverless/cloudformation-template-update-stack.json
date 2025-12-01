@@ -171,7 +171,7 @@
           "S3Bucket": {
             "Ref": "ServerlessDeploymentBucket"
           },
-          "S3Key": "serverless/complaint-management-api/prod/1764587734447-2025-12-01T11:15:34.447Z/complaint-management-api.zip"
+          "S3Key": "serverless/complaint-management-api/prod/1764588111124-2025-12-01T11:21:51.124Z/complaint-management-api.zip"
         },
         "Handler": "src/handler.handler",
         "Runtime": "nodejs18.x",
@@ -218,14 +218,14 @@
         "ApiLogGroup"
       ]
     },
-    "ApiLambdaVersionCbR2Xlis9hFc31ZFGT3W1hYuUvdUEx8a9YGqeRCYo": {
+    "ApiLambdaVersionSy6eOfwvaqVtaxfR1s3JeSRJYQkpMiEcksQzdKeRM": {
       "Type": "AWS::Lambda::Version",
       "DeletionPolicy": "Retain",
       "Properties": {
         "FunctionName": {
           "Ref": "ApiLambdaFunction"
         },
-        "CodeSha256": "4jViKaYPjTCW6/eJltN+2LHww16boINlzXIHqjgIFu4="
+        "CodeSha256": "iwrsTeEgMJPbuUtRNbwDgXujth5PoFEincFjnrAKloU="
       }
     },
     "HttpApi": {
@@ -381,7 +381,7 @@
     "ApiLambdaFunctionQualifiedArn": {
       "Description": "Current Lambda function version",
       "Value": {
-        "Ref": "ApiLambdaVersionCbR2Xlis9hFc31ZFGT3W1hYuUvdUEx8a9YGqeRCYo"
+        "Ref": "ApiLambdaVersionSy6eOfwvaqVtaxfR1s3JeSRJYQkpMiEcksQzdKeRM"
       },
       "Export": {
         "Name": "sls-complaint-management-api-prod-ApiLambdaFunctionQualifiedArn"

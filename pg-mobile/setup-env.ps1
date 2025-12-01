@@ -29,3 +29,4 @@ Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "1. Make sure Android emulator is running" -ForegroundColor White
 Write-Host "2. Run: npm run android" -ForegroundColor White
 
+
