@@ -219,6 +219,93 @@ export async function generateEKycDocument({ user, kycData }) {
 
   yPosition += 30;
 
+  // ========== AADHAAR VERIFICATION DETAILS (if available) ==========
+  const verifiedDetails = kycData?.verifiedAadhaarDetails;
+  if (verifiedDetails && kycData.idType === "AADHAAR") {
+    const aadhaarSection = structure.sections.aadhaarVerification;
+    doc
+      .fontSize(aadhaarSection.fontSize)
+      .font(aadhaarSection.font)
+      .fillColor(colors.primary)
+      .text(aadhaarSection.title, 40, yPosition);
+
+    yPosition += 20;
+
+    doc
+      .rect(40, yPosition, doc.page.width - 80, 1)
+      .fillColor(colors.border)
+      .fill();
+
+    yPosition += 15;
+
+    // Add a highlighted box for verified details
+    doc
+      .rect(40, yPosition, doc.page.width - 80, 1)
+      .fillColor(colors.lightGray)
+      .fill()
+      .strokeColor(colors.success)
+      .lineWidth(2)
+      .stroke();
+
+    yPosition += 10;
+
+    aadhaarSection.fields.forEach((field) => {
+      let value = verifiedDetails[field.key];
+      let displayValue = "N/A";
+
+      if (field.key === "verifiedDob" && value) {
+        displayValue = structure.formatters.date(value);
+      } else if (field.key === "verifiedAddress" && value) {
+        // Handle long addresses - wrap text
+        displayValue = value;
+      } else if (value) {
+        displayValue = String(value);
+      }
+
+      doc
+        .fontSize(10)
+        .font("Helvetica-Bold")
+        .fillColor(colors.primary)
+        .text(`${field.label}:`, 50, yPosition);
+
+      // Handle long addresses with text wrapping
+      if (field.key === "verifiedAddress" && displayValue.length > 60) {
+        doc
+          .fontSize(9)
+          .font("Helvetica")
+          .fillColor(colors.textSecondary)
+          .text(displayValue, 50, yPosition + 15, {
+            width: doc.page.width - 100,
+            align: "left",
+          });
+        yPosition += 35;
+      } else {
+        doc
+          .fontSize(10)
+          .font("Helvetica")
+          .fillColor(colors.success)
+          .text(displayValue, 180, yPosition);
+        yPosition += 18;
+      }
+    });
+
+    yPosition += 10;
+
+    // Add verification message if available
+    if (verifiedDetails.message) {
+      doc
+        .fontSize(9)
+        .font("Helvetica-Oblique")
+        .fillColor(colors.success)
+        .text(`✓ ${verifiedDetails.message}`, 50, yPosition, {
+          width: doc.page.width - 100,
+        });
+      yPosition += 15;
+    }
+
+    yPosition += 20;
+  }
+
   // ========== FOOTER ==========
   const footer = structure.footer;
   const footerY = doc.page.height - 60;

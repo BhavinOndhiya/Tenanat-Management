@@ -82,6 +82,20 @@ export const ekycDocumentStructure = {
       fontSize: 12,
       font: "Helvetica-Bold",
     },
+    aadhaarVerification: {
+      title: "AADHAAR VERIFICATION DETAILS",
+      fontSize: 12,
+      font: "Helvetica-Bold",
+      fields: [
+        { key: "verifiedName", label: "Verified Name (as per Aadhaar)" },
+        { key: "verifiedAddress", label: "Verified Address (as per Aadhaar)" },
+        { key: "verifiedDob", label: "Verified Date of Birth" },
+        { key: "careOf", label: "Care Of" },
+        { key: "transactionId", label: "Transaction ID" },
+        { key: "referenceId", label: "Reference ID" },
+        { key: "status", label: "Verification Status" },
+      ],
+    },
   },
 
   // Footer configuration

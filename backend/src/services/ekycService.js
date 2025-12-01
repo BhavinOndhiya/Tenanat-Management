@@ -2,7 +2,110 @@
  * eKYC Service for Aadhaar Identity Verification
  * This service handles communication with Sandbox.co.in Aadhaar eKYC API
  * API Documentation: https://api.sandbox.co.in/kyc/aadhaar/okyc
+ *
+ * Authentication Flow:
+ * 1. Call /authenticate endpoint with API Key and Secret to get access token
+ * 2. Use access token (without Bearer prefix) in Authorization header for API calls
+ * 3. Access token is valid for 24 hours
  */
+
+// Cache for access token (with expiration)
+let accessTokenCache = {
+  token: null,
+  expiresAt: null,
+};
+
+/**
+ * Authenticate with Sandbox.co.in API and get access token
+ * Access token is cached and reused until expiration (24 hours)
+ * @returns {Promise<string>} - Access token
+ */
+async function getAccessToken() {
+  const apiKey = process.env.EKYC_API_KEY;
+  const apiSecret = process.env.EKYC_API_SECRET;
+  const apiBaseUrl =
+    process.env.EKYC_API_BASE_URL || "https://api.sandbox.co.in";
+  const apiVersion = process.env.EKYC_API_VERSION || "2.0";
+
+  if (!apiKey || !apiSecret) {
+    throw new Error(
+      "eKYC API credentials not configured. Please set EKYC_API_KEY and EKYC_API_SECRET environment variables."
+    );
+  }
+
+  // Check if we have a valid cached token
+  if (
+    accessTokenCache.token &&
+    accessTokenCache.expiresAt &&
+    Date.now() < accessTokenCache.expiresAt
+  ) {
+    console.log("[eKYC Service] Using cached access token");
+    return accessTokenCache.token;
+  }
+
+  try {
+    console.log("[eKYC Service] Authenticating to get access token...");
+
+    const response = await fetch(`${apiBaseUrl}/authenticate`, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "x-api-secret": apiSecret,
+        "x-api-version": apiVersion,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = {
+          error: `Authentication failed with status ${response.status}`,
+          message: response.statusText,
+        };
+      }
+
+      console.error("[eKYC Service] Authentication error:", {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+      });
+
+      throw new Error(
+        errorData.error ||
+          errorData.message ||
+          `Authentication failed: ${response.statusText}`
+      );
+    }
+
+    const result = await response.json();
+
+    if (!result || result.code !== 200 || !result.data?.access_token) {
+      throw new Error(
+        result.message || "Failed to get access token from authentication API"
+      );
+    }
+
+    const accessToken = result.data.access_token;
+
+    // Cache the token (valid for 24 hours, but we'll refresh after 23 hours to be safe)
+    accessTokenCache = {
+      token: accessToken,
+      expiresAt: Date.now() + 23 * 60 * 60 * 1000, // 23 hours in milliseconds
+    };
+
+    console.log("[eKYC Service] Access token obtained and cached");
+
+    return accessToken;
+  } catch (error) {
+    console.error("[eKYC Service] Authentication error:", error);
+    throw new Error(
+      `Failed to authenticate with Sandbox.co.in API: ${error.message}`
+    );
+  }
+}
 
 /**
  * Send OTP to Aadhaar number for verification
@@ -14,13 +117,13 @@
 export async function sendAadhaarOtp(params) {
   const { aadhaarNumber, reason } = params;
 
-  // Validate required environment variables
+  // Get API configuration
   const apiKey = process.env.EKYC_API_KEY;
-  const apiSecret = process.env.EKYC_API_SECRET;
   const apiBaseUrl =
     process.env.EKYC_API_BASE_URL || "https://api.sandbox.co.in";
+  const apiVersion = process.env.EKYC_API_VERSION || "2.0";
 
-  if (!apiKey || !apiSecret) {
+  if (!apiKey) {
     throw new Error(
       "eKYC API credentials not configured. Please set EKYC_API_KEY and EKYC_API_SECRET environment variables."
     );
@@ -40,24 +143,44 @@ export async function sendAadhaarOtp(params) {
 
   try {
     // Prepare request payload
+    // Note: @entity must be exactly "in.co.sandbox.kyc.aadhaar.okyc.otp.request" for OTP request
     const payload = {
-      "@entity": "in.co.sandbox.kyc.aadhaar.okyc.otp",
+      "@entity": "in.co.sandbox.kyc.aadhaar.okyc.otp.request",
       aadhaar_number: cleanedAadhaar,
       consent: "Y",
       reason: reason || "KYC Verification",
     };
 
-    // Create authentication header
-    const authHeader = createAuthHeader(apiKey, apiSecret);
+    // Log payload for debugging (without sensitive data)
+    console.log("[eKYC Service] Send OTP payload:", {
+      "@entity": payload["@entity"],
+      aadhaar_number_length: payload.aadhaar_number?.length,
+      consent: payload.consent,
+      hasReason: !!payload.reason,
+    });
+
+    // Get access token (will authenticate if needed)
+    const accessToken = await getAccessToken();
+
+    // Log request details (without sensitive data) for debugging
+    console.log("[eKYC Service] Sending OTP request:", {
+      url: `${apiBaseUrl}/kyc/aadhaar/okyc/otp`,
+      hasAccessToken: !!accessToken,
+    });
+
+    // Prepare headers
+    // Note: Access token is used directly without Bearer prefix per Sandbox.co.in docs
+    const headers = {
+      Authorization: accessToken, // No Bearer prefix!
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "x-api-version": apiVersion,
+    };
 
     // Make API request
     const response = await fetch(`${apiBaseUrl}/kyc/aadhaar/okyc/otp`, {
       method: "POST",
-      headers: {
-        ...authHeader,
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
@@ -111,13 +234,13 @@ export async function sendAadhaarOtp(params) {
 export async function verifyAadhaarOtp(params) {
   const { referenceId, otp } = params;
 
-  // Validate required environment variables
+  // Get API configuration
   const apiKey = process.env.EKYC_API_KEY;
-  const apiSecret = process.env.EKYC_API_SECRET;
   const apiBaseUrl =
     process.env.EKYC_API_BASE_URL || "https://api.sandbox.co.in";
+  const apiVersion = process.env.EKYC_API_VERSION || "2.0";
 
-  if (!apiKey || !apiSecret) {
+  if (!apiKey) {
     throw new Error(
       "eKYC API credentials not configured. Please set EKYC_API_KEY and EKYC_API_SECRET environment variables."
     );
@@ -130,35 +253,67 @@ export async function verifyAadhaarOtp(params) {
 
   try {
     // Prepare request payload
+    // According to API v2.0 docs, verify endpoint uses "in.co.sandbox.kyc.aadhaar.okyc.request"
     const payload = {
-      "@entity": "in.co.sandbox.kyc.aadhaar.okyc.otp.verify",
+      "@entity": "in.co.sandbox.kyc.aadhaar.okyc.request",
       reference_id: String(referenceId),
       otp: String(otp),
     };
 
-    // Create authentication header
-    const authHeader = createAuthHeader(apiKey, apiSecret);
+    // Log payload for debugging (without sensitive data)
+    console.log("[eKYC Service] Verify OTP payload:", {
+      "@entity": payload["@entity"],
+      hasReferenceId: !!payload.reference_id,
+      hasOtp: !!payload.otp,
+      referenceIdLength: payload.reference_id?.length,
+      otpLength: payload.otp?.length,
+    });
+
+    // Get access token (will authenticate if needed)
+    const accessToken = await getAccessToken();
+
+    // Prepare headers
+    // Note: Access token is used directly without Bearer prefix per Sandbox.co.in docs
+    const headers = {
+      Authorization: accessToken, // No Bearer prefix!
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "x-api-version": apiVersion,
+    };
 
     // Make API request
     const response = await fetch(`${apiBaseUrl}/kyc/aadhaar/okyc/otp/verify`, {
       method: "POST",
-      headers: {
-        ...authHeader,
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({
-        error: `API request failed with status ${response.status}`,
-      }));
-      throw new Error(
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = {
+          error: `API request failed with status ${response.status}`,
+          message: response.statusText,
+        };
+      }
+
+      // Log the full error for debugging
+      console.error("[eKYC Service] API Error Response (Verify):", {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+      });
+
+      // Extract error message from various possible response formats
+      const errorMessage =
         errorData.error ||
-          errorData.message ||
-          `eKYC API error: ${response.statusText}`
-      );
+        errorData.message ||
+        errorData.data?.message ||
+        `eKYC API error: ${response.statusText}`;
+
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
@@ -240,42 +395,13 @@ export async function verifyAadhaarIdentity(params) {
 }
 
 /**
- * Create authentication header for Sandbox.co.in API
- * Based on API documentation, it uses Authorization header and x-api-key
+ * Clear the cached access token (useful for testing or forced refresh)
  */
-function createAuthHeader(apiKey, apiSecret) {
-  // Sandbox.co.in API uses Authorization header (likely JWT or Bearer token)
-  // The exact format depends on how you generate the token from apiKey and apiSecret
-  // Common patterns:
-
-  const authMethod = process.env.EKYC_AUTH_METHOD || "apikey"; // "apikey", "basic", or "bearer"
-
-  switch (authMethod.toLowerCase()) {
-    case "basic":
-      // Basic Auth: base64 encode "apiKey:apiSecret"
-      const credentials = Buffer.from(`${apiKey}:${apiSecret}`).toString(
-        "base64"
-      );
-      return {
-        Authorization: `Basic ${credentials}`,
-      };
-
-    case "bearer":
-      // Bearer token (if apiSecret is the token)
-      return {
-        Authorization: `Bearer ${apiSecret}`,
-      };
-
-    case "apikey":
-    default:
-      // For Sandbox.co.in, Authorization might be a JWT or token
-      // If apiSecret is the authorization token, use it directly
-      // Otherwise, you might need to generate a JWT
-      // For now, using apiSecret as Authorization token
-      return {
-        Authorization: apiSecret, // or `Bearer ${apiSecret}` depending on API requirements
-      };
-  }
+export function clearAccessTokenCache() {
+  accessTokenCache = {
+    token: null,
+    expiresAt: null,
+  };
 }
 
 /**

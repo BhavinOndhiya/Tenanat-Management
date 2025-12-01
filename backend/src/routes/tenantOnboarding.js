@@ -48,6 +48,27 @@ const requirePgTenant = (req, res, next) => {
 router.use(requirePgTenant);
 
 /**
+ * Map Aadhaar gender format to User model format
+ * Aadhaar API returns: M, F, O
+ * User model expects: MALE, FEMALE, OTHER
+ */
+function mapAadhaarGenderToUserFormat(aadhaarGender) {
+  if (!aadhaarGender) return null;
+
+  const genderMap = {
+    M: "MALE",
+    F: "FEMALE",
+    O: "OTHER",
+    MALE: "MALE", // Already in correct format
+    FEMALE: "FEMALE",
+    OTHER: "OTHER",
+  };
+
+  const upperGender = aadhaarGender.toUpperCase().trim();
+  return genderMap[upperGender] || null;
+}
+
+/**
  * GET /api/tenant/onboarding
  * Get tenant onboarding data (property, room, rent, etc.)
  */
@@ -269,6 +290,7 @@ router.post(
       let verifiedAddress = permanentAddress;
       let verifiedDob = dateOfBirth;
       let verifiedGender = gender;
+      let verifiedAadhaarDetails = null;
 
       // If Aadhaar verification is requested, verify with eKYC API
       if (idType === "AADHAAR" && referenceId && otp) {
@@ -298,7 +320,28 @@ router.post(
           verifiedName = kycResult.verifiedName || fullName;
           verifiedAddress = kycResult.verifiedAddress || permanentAddress;
           verifiedDob = kycResult.verifiedDob || dateOfBirth;
-          verifiedGender = kycResult.verifiedGender || gender;
+
+          // Map Aadhaar gender format (M/F/O) to User model format (MALE/FEMALE/OTHER)
+          const aadhaarGender = kycResult.verifiedGender || gender;
+          verifiedGender =
+            mapAadhaarGenderToUserFormat(aadhaarGender) ||
+            mapAadhaarGenderToUserFormat(gender) ||
+            gender;
+
+          // Store verified Aadhaar details for PDF generation
+          verifiedAadhaarDetails = {
+            verifiedName: kycResult.verifiedName,
+            verifiedAddress: kycResult.verifiedAddress,
+            verifiedAddressDetails: kycResult.verifiedAddressDetails,
+            verifiedDob: kycResult.verifiedDob,
+            verifiedGender: kycResult.verifiedGender,
+            careOf: kycResult.careOf,
+            yearOfBirth: kycResult.yearOfBirth,
+            transactionId: kycResult.transactionId,
+            referenceId: kycResult.referenceId,
+            status: kycResult.status,
+            message: kycResult.message,
+          };
 
           // Verify that provided details match Aadhaar details
           // (Optional: You can add strict matching here)
@@ -365,14 +408,60 @@ router.post(
         };
       }
 
+      // Map gender to ensure it's in the correct format for User model
+      // This handles both Aadhaar format (M/F/O) and form format (MALE/FEMALE/OTHER)
+      // Always ensure we have a valid enum value before saving
+      let finalGender =
+        mapAadhaarGenderToUserFormat(verifiedGender) ||
+        mapAadhaarGenderToUserFormat(gender) ||
+        gender;
+
+      // Final validation - if still not a valid enum value, default to MALE
+      const validGenders = ["MALE", "FEMALE", "OTHER", "PREFER_NOT_TO_SAY"];
+      if (!validGenders.includes(finalGender)) {
+        console.warn(
+          `[eKYC] Invalid gender value "${finalGender}", defaulting to MALE`
+        );
+        finalGender = "MALE";
+      }
+
       user.personalDetails = {
         ...user.personalDetails,
-        gender: verifiedGender,
+        gender: finalGender,
       };
 
-      // Store verified address
+      // Store verified address - parse structured address details from Aadhaar
       if (verifiedAddress) {
-        user.address = { ...user.address, street: verifiedAddress };
+        // Parse address components from Aadhaar response
+        const addressDetails =
+          verifiedAadhaarDetails?.verifiedAddressDetails || {};
+
+        // Extract address components
+        // Aadhaar API returns: house, street, landmark, vtc (village/town/city),
+        // post_office, district, subdistrict, state, pincode, country
+        const streetParts = [
+          addressDetails.house,
+          addressDetails.street,
+          addressDetails.landmark,
+        ].filter(Boolean);
+
+        const street =
+          streetParts.length > 0
+            ? streetParts.join(", ")
+            : verifiedAddress.split(",")[0] || verifiedAddress; // Fallback to first part of full address
+
+        user.address = {
+          ...user.address,
+          street: street.trim(),
+          city:
+            addressDetails.vtc ||
+            addressDetails.district ||
+            addressDetails.city ||
+            "",
+          state: addressDetails.state || "",
+          zipCode: addressDetails.pincode || addressDetails.zipCode || "",
+          country: addressDetails.country || "India",
+        };
       }
 
       if (phone) {
@@ -425,7 +514,7 @@ router.post(
         ...user.kycData,
         fullName: verifiedName.trim(),
         dateOfBirth: dobDate || new Date(dateOfBirth),
-        gender: verifiedGender,
+        gender: finalGender,
         fatherMotherName: fatherMotherName?.trim() || "",
         phone: cleanedPhone,
         email: cleanedEmail,
@@ -434,6 +523,10 @@ router.post(
         companyCollegeName: companyCollegeName?.trim() || "",
         idType,
         idNumber: idValidation.cleaned || idNumber.trim(),
+        // Store verified Aadhaar details if available
+        ...(verifiedAadhaarDetails && {
+          verifiedAadhaarDetails,
+        }),
       };
 
       await user.save();
